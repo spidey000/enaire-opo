@@ -91,12 +91,34 @@ export function ChartsPanel({ data }: Props) {
     ]
   }, [data])
 
+
   const scatterData = useMemo(() => {
     return data
       .filter((c) => c.conocimientosGenerales !== null && c.aptitudes !== null)
       .slice(0, 600)
       .map((c) => ({ x: c.conocimientosGenerales!, y: c.aptitudes!, estado: c.estado }))
   }, [data])
+
+  const scatterDomain = useMemo(() => {
+    if (!scatterData.length) {
+      return { x: [0, 10], y: [0, 10] }
+    }
+    let minX = scatterData[0].x
+    let maxX = scatterData[0].x
+    let minY = scatterData[0].y
+    let maxY = scatterData[0].y
+    for (const point of scatterData) {
+      if (point.x < minX) minX = point.x
+      if (point.x > maxX) maxX = point.x
+      if (point.y < minY) minY = point.y
+      if (point.y > maxY) maxY = point.y
+    }
+    const padding = 2
+    return {
+      x: [Math.max(0, minX - padding), maxX + padding],
+      y: [Math.max(0, minY - padding), maxY + padding],
+    }
+  }, [scatterData])
 
   const TICK = { fontSize: 11, fill: '#6b7280' }
   const GRID_COLOR = '#e5e7eb'
@@ -225,6 +247,7 @@ export function ChartsPanel({ data }: Props) {
               tick={TICK}
               tickLine={false}
               axisLine={{ stroke: GRID_COLOR }}
+              domain={scatterDomain.x}
               label={{ value: 'Con. Generales', position: 'insideBottomRight', offset: -4, fontSize: 10, fill: '#9ca3af' }}
             />
             <YAxis
@@ -234,6 +257,7 @@ export function ChartsPanel({ data }: Props) {
               tick={TICK}
               tickLine={false}
               axisLine={false}
+              domain={scatterDomain.y}
               label={{ value: 'Aptitudes', angle: -90, position: 'insideLeft', offset: 16, fontSize: 10, fill: '#9ca3af' }}
             />
             <Tooltip
