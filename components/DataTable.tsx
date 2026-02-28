@@ -123,10 +123,7 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
 
   const displayedCols = TABLE_COLUMNS.filter((col) => visibleColumns[col.key])
 
-  const colUnits = displayedCols.map((col) => {
-    if (col.key === 'nombre' && !visibleColumns.id) return 2
-    return 1
-  })
+  const colUnits = displayedCols.map((col) => (col.key === 'nombre' ? 3 : 1))
   const totalUnits = colUnits.reduce((sum, units) => sum + units, 0)
 
   function SortIcon({ col }: { col: string }) {
