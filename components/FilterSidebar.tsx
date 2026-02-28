@@ -4,6 +4,7 @@ import { Search, SlidersHorizontal, RotateCcw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
+import { ColumnVisibility, TABLE_COLUMNS } from './DataTable'
 
 export interface Filters {
   search: string
@@ -18,6 +19,8 @@ interface Props {
   filters: Filters
   onChange: (f: Filters) => void
   onReset: () => void
+  visibleColumns: ColumnVisibility
+  onToggleColumn: (key: string) => void
 }
 
 const ESTADOS = [
@@ -47,7 +50,7 @@ export const DEFAULT_FILTERS: Filters = {
   sortDir: 'asc',
 }
 
-export function FilterSidebar({ filters, onChange, onReset }: Props) {
+export function FilterSidebar({ filters, onChange, onReset, visibleColumns, onToggleColumn }: Props) {
   const update = (partial: Partial<Filters>) => onChange({ ...filters, ...partial })
 
   const toggleEstado = (e: string) => {
@@ -162,6 +165,31 @@ export function FilterSidebar({ filters, onChange, onReset }: Props) {
               {dir === 'asc' ? 'Ascendente' : 'Descendente'}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Columnas
+        </Label>
+        <div className="flex flex-col gap-1.5">
+          {TABLE_COLUMNS.map((col) => {
+            const enabled = visibleColumns[col.key]
+            return (
+              <button
+                key={col.key}
+                onClick={() => onToggleColumn(col.key)}
+                className={`rounded-sm border px-3 py-2 text-xs font-medium transition-all text-left flex items-center justify-between ${
+                  enabled
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-muted-foreground hover:bg-muted/40'
+                }`}
+              >
+                <span>{col.label}</span>
+                <span className="text-[10px] uppercase tracking-wide">{enabled ? 'On' : 'Off'}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </aside>

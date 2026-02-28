@@ -6,10 +6,9 @@ import { Candidato } from '@/lib/parseCSV'
 import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
-import { DataTable } from '@/components/DataTable'
-import { AprobadosTable } from '@/components/AprobadosTable'
+import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { MOCK_CANDIDATOS } from '@/lib/mockCandidates'
-import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCheck } from 'lucide-react'
+import { BarChart3, Table2, Loader2, FileSpreadsheet } from 'lucide-react'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -17,11 +16,12 @@ const fetcher = (url: string) =>
     return r.json()
   })
 
-type Tab = 'tabla' | 'graficas' | 'aprobados'
+type Tab = 'tabla' | 'graficas'
 
 export default function Home() {
   const { data, error, isLoading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
 
   const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
@@ -52,6 +52,19 @@ export default function Home() {
       sortBy: col,
       sortDir: prev.sortBy === col && prev.sortDir === 'asc' ? 'desc' : 'asc',
     }))
+  }
+
+  const handleToggleColumn = (key: string) => {
+    setVisibleColumns((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      const hasAnyVisible = Object.values(next).some(Boolean)
+      return hasAnyVisible ? next : prev
+    })
+  }
+
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
   }
 
   return (
@@ -139,7 +152,6 @@ export default function Home() {
                 {[
                   { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
                   { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
-                  { id: 'aprobados' as Tab, label: 'Solo Aprobados', icon: CheckCheck },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -164,7 +176,9 @@ export default function Home() {
                   <FilterSidebar
                     filters={filters}
                     onChange={setFilters}
-                    onReset={() => setFilters(DEFAULT_FILTERS)}
+                    onReset={handleResetFilters}
+                    visibleColumns={visibleColumns}
+                    onToggleColumn={handleToggleColumn}
                   />
                 </div>
                 <div className="flex-1 min-w-0 w-full">
@@ -172,6 +186,7 @@ export default function Home() {
                     data={sortedData}
                     filters={filters}
                     onSortChange={handleSortChange}
+                    visibleColumns={visibleColumns}
                   />
                 </div>
               </div>
@@ -234,20 +249,7 @@ export default function Home() {
               </div>
             )}
 
-            {tab === 'aprobados' && (
-              <div className="flex flex-col lg:flex-row gap-6 items-start">
-                <div className="w-full lg:w-60 shrink-0">
-                  <FilterSidebar
-                    filters={filters}
-                    onChange={setFilters}
-                    onReset={() => setFilters(DEFAULT_FILTERS)}
-                  />
-                </div>
-                <div className="flex-1 min-w-0 w-full">
-                  <AprobadosTable data={sortedData} filters={filters} />
-                </div>
-              </div>
-            )}
+
           </>
         )}
       </main>

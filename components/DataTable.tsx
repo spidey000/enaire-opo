@@ -1,17 +1,27 @@
 'use client'
 
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Candidato } from '@/lib/parseCSV'
-import { ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react'
-import { Filters } from './FilterSidebar'
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import type { Filters } from './FilterSidebar'
+
+export interface TableColumn {
+  key: string
+  label: string
+  align?: string
+  defaultVisible?: boolean
+}
+
+export type ColumnVisibility = Record<string, boolean>
 
 interface Props {
   data: Candidato[]
   filters: Filters
   onSortChange: (col: string) => void
+  visibleColumns: ColumnVisibility
 }
 
-const BATCH = 50
+const PAGE_SIZE = 25
 
 function EstadoBadge({ estado }: { estado: string }) {
   if (estado === 'APTO/A') {
@@ -40,15 +50,27 @@ function fmt(v: number | null): string {
   return v.toFixed(2)
 }
 
-export function DataTable({ data, filters, onSortChange }: Props) {
-  const [visibleCount, setVisibleCount] = useState(BATCH)
-  const sentinelRef = useRef<HTMLTableRowElement>(null)
+export const TABLE_COLUMNS: TableColumn[] = [
+  { key: 'ranking', label: 'Rank.', align: 'text-right', defaultVisible: true },
+  { key: 'id', label: 'Identificador', defaultVisible: false },
+  { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
+  { key: 'conocimientosGenerales', label: 'Con. Gen.', align: 'text-right', defaultVisible: true },
+  { key: 'ingles', label: 'Inglés', align: 'text-right', defaultVisible: true },
+  { key: 'aptitudes', label: 'Aptitudes', align: 'text-right', defaultVisible: true },
+  { key: 'totalFase1', label: 'Total F1', align: 'text-right', defaultVisible: true },
+  { key: 'estado', label: 'Estado', defaultVisible: true },
+  { key: 'rankingConocimientos', label: 'Rk. Con.', align: 'text-right', defaultVisible: true },
+  { key: 'rankingIngles', label: 'Rk. Ing.', align: 'text-right', defaultVisible: true },
+  { key: 'rankingAptitud', label: 'Rk. Apt.', align: 'text-right', defaultVisible: true },
+]
 
-  const topScrollerRef = useRef<HTMLDivElement>(null)
-  const topSpacerRef = useRef<HTMLDivElement>(null)
-  const tableScrollerRef = useRef<HTMLDivElement>(null)
-  const syncSourceRef = useRef<'top' | 'table' | null>(null)
-  const rafRef = useRef<number | null>(null)
+export const DEFAULT_VISIBLE_COLUMNS: ColumnVisibility = Object.fromEntries(
+  TABLE_COLUMNS.map((col) => [col.key, col.defaultVisible !== false])
+) as ColumnVisibility
+
+export function DataTable({ data, filters, onSortChange, visibleColumns }: Props) {
+  const [page, setPage] = useState(1)
+  const [pageInput, setPageInput] = useState('1')
 
   const filtered = useMemo(() => {
     const search = filters.search.toLowerCase().trim()
@@ -67,116 +89,42 @@ export function DataTable({ data, filters, onSortChange }: Props) {
   }, [data, filters])
 
   useEffect(() => {
-    setVisibleCount(BATCH)
+    setPage(1)
+    setPageInput('1')
   }, [filtered])
 
-  const slice = filtered.slice(0, visibleCount)
-  const hasMore = visibleCount < filtered.length
-
-  const loadMore = useCallback(() => {
-    setVisibleCount((n) => Math.min(n + BATCH, filtered.length))
-  }, [filtered.length])
-
-  const syncTopSpacer = useCallback(() => {
-    const tableScroller = tableScrollerRef.current
-    const topSpacer = topSpacerRef.current
-    if (!tableScroller || !topSpacer) return
-
-    const table = tableScroller.querySelector('table')
-    const tableWidth = table instanceof HTMLElement ? table.scrollWidth : tableScroller.scrollWidth
-    topSpacer.style.width = `${tableWidth}px`
-  }, [])
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const currentRows = filtered.slice(start, start + PAGE_SIZE)
 
   useEffect(() => {
-    const tableScroller = tableScrollerRef.current
-    if (!tableScroller) return
+    setPage((current) => Math.min(current, totalPages))
+  }, [totalPages])
 
-    const observer = new ResizeObserver(() => {
-      syncTopSpacer()
-    })
-
-    observer.observe(tableScroller)
-    const table = tableScroller.querySelector('table')
-    if (table instanceof HTMLElement) observer.observe(table)
-
-    syncTopSpacer()
-
-    return () => observer.disconnect()
-  }, [syncTopSpacer, slice.length])
-
-  const scheduleSync = useCallback((source: 'top' | 'table') => {
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      const topScroller = topScrollerRef.current
-      const tableScroller = tableScrollerRef.current
-      if (!topScroller || !tableScroller) return
-
-      if (source === 'top') {
-        tableScroller.scrollLeft = topScroller.scrollLeft
-      } else {
-        topScroller.scrollLeft = tableScroller.scrollLeft
-      }
-      syncSourceRef.current = null
-      rafRef.current = null
-    })
-  }, [])
-
-  useEffect(() => {
-    const topScroller = topScrollerRef.current
-    const tableScroller = tableScrollerRef.current
-    if (!topScroller || !tableScroller) return
-
-    const onTopScroll = () => {
-      if (syncSourceRef.current === 'table') return
-      syncSourceRef.current = 'top'
-      scheduleSync('top')
+  const paginationItems = useMemo(() => {
+    const items: Array<number | 'ellipsis'> = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) items.push(i)
+      return items
     }
 
-    const onTableScroll = () => {
-      if (syncSourceRef.current === 'top') return
-      syncSourceRef.current = 'table'
-      scheduleSync('table')
-    }
+    items.push(1)
+    if (safePage > 3) items.push('ellipsis')
 
-    topScroller.addEventListener('scroll', onTopScroll, { passive: true })
-    tableScroller.addEventListener('scroll', onTableScroll, { passive: true })
+    const from = Math.max(2, safePage - 1)
+    const to = Math.min(totalPages - 1, safePage + 1)
+    for (let i = from; i <= to; i += 1) items.push(i)
 
-    return () => {
-      topScroller.removeEventListener('scroll', onTopScroll)
-      tableScroller.removeEventListener('scroll', onTableScroll)
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-    }
-  }, [scheduleSync])
+    if (safePage < totalPages - 2) items.push('ellipsis')
+    items.push(totalPages)
+    return items
+  }, [safePage, totalPages])
 
-  useEffect(() => {
-    const el = sentinelRef.current
-    const root = tableScrollerRef.current
-    if (!el || !hasMore || !root) return
+  const displayedCols = TABLE_COLUMNS.filter((col) => visibleColumns[col.key])
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore()
-      },
-      { root, rootMargin: '200px' }
-    )
-
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore])
-
-  const cols: { key: string; label: string; align?: string }[] = [
-    { key: 'ranking', label: 'Rank.' },
-    { key: 'id', label: 'Identificador' },
-    { key: 'nombre', label: 'Nombre y Apellidos' },
-    { key: 'conocimientosGenerales', label: 'Con. Gen.', align: 'text-right' },
-    { key: 'ingles', label: 'Inglés', align: 'text-right' },
-    { key: 'aptitudes', label: 'Aptitudes', align: 'text-right' },
-    { key: 'totalFase1', label: 'Total F1', align: 'text-right' },
-    { key: 'estado', label: 'Estado' },
-    { key: 'rankingConocimientos', label: 'Rk. Con.', align: 'text-right' },
-    { key: 'rankingIngles', label: 'Rk. Ing.', align: 'text-right' },
-    { key: 'rankingAptitud', label: 'Rk. Apt.', align: 'text-right' },
-  ]
+  const colUnits = displayedCols.map((col) => (col.key === 'nombre' ? 3 : 1))
+  const totalUnits = colUnits.reduce((sum, units) => sum + units, 0)
 
   function SortIcon({ col }: { col: string }) {
     if (col === 'id' || col === 'estado') return null
@@ -196,30 +144,20 @@ export function DataTable({ data, filters, onSortChange }: Props) {
           {' '}candidatos encontrados
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          Mostrando {Math.min(visibleCount, filtered.length).toLocaleString('es-ES')} de {filtered.length.toLocaleString('es-ES')}
+          Mostrando {filtered.length === 0 ? 0 : start + 1}-{Math.min(start + PAGE_SIZE, filtered.length)} de {filtered.length.toLocaleString('es-ES')}
         </span>
       </div>
 
-      <div className="hidden lg:block border-b border-border bg-muted/20 px-4 py-1">
-        <div
-          ref={topScrollerRef}
-          className="overflow-x-auto overflow-y-hidden h-3"
-          aria-label="Desplazamiento horizontal superior"
-        >
-          <div ref={topSpacerRef} className="h-px" />
-        </div>
-      </div>
-
-      <div
-        ref={tableScrollerRef}
-        className="overflow-auto max-h-[70vh]"
-        aria-label="Tabla de resultados con scroll infinito"
-        tabIndex={0}
-      >
-        <table className="w-full min-w-[1120px] text-xs table-auto border-separate border-spacing-0">
+      <div className="w-full overflow-hidden" aria-label="Tabla de resultados paginada">
+        <table className="w-full text-xs table-fixed border-separate border-spacing-0">
+          <colgroup>
+            {displayedCols.map((col, index) => (
+              <col key={`col-${col.key}`} style={{ width: `${(colUnits[index] / totalUnits) * 100}%` }} />
+            ))}
+          </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
-              {cols.map((col) => (
+              {displayedCols.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => onSortChange(col.key)}
@@ -235,81 +173,158 @@ export function DataTable({ data, filters, onSortChange }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {slice.length === 0 ? (
+            {currentRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                <td colSpan={Math.max(1, displayedCols.length)} className="px-4 py-16 text-center text-sm text-muted-foreground">
                   No se encontraron candidatos con los filtros aplicados.
                 </td>
               </tr>
             ) : (
-              <>
-                {slice.map((c, i) => (
-                  <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
-                      {c.ranking !== null
-                        ? <span className="font-bold text-primary">{c.ranking}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{c.id}</td>
-                    <td className="px-3 py-2.5 font-medium text-foreground min-w-[200px] max-w-[280px] truncate">{c.nombre}</td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.conocimientosGenerales !== null
-                        ? <span className="text-primary font-semibold">{fmt(c.conocimientosGenerales)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.ingles !== null
-                        ? <span className="text-indigo-600 font-semibold">{fmt(c.ingles)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.aptitudes !== null
-                        ? <span className="text-emerald-700 font-semibold">{fmt(c.aptitudes)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
-                      {c.totalFase1 !== null
-                        ? <span className="text-foreground">{fmt(c.totalFase1)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap"><EstadoBadge estado={c.estado} /></td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingConocimientos !== null
-                        ? <span className="text-primary">{c.rankingConocimientos}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingIngles !== null
-                        ? <span className="text-indigo-600">{c.rankingIngles}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingAptitud !== null
-                        ? <span className="text-emerald-700">{c.rankingAptitud}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                  </tr>
-                ))}
-
-                {hasMore && (
-                  <tr ref={sentinelRef}>
-                    <td colSpan={11} className="py-6 text-center">
-                      <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                        Cargando más resultados...
-                      </span>
-                    </td>
-                  </tr>
-                )}
-              </>
+              currentRows.map((c, i) => (
+                <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
+                  {displayedCols.map((col) => {
+                    switch (col.key) {
+                      case 'ranking':
+                        return (
+                          <td key={`${c.id}-${i}-ranking`} className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
+                            {c.ranking !== null
+                              ? <span className="font-bold text-primary">{c.ranking}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'id':
+                        return <td key={`${c.id}-${i}-id`} className="px-3 py-2.5 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{c.id}</td>
+                      case 'nombre':
+                        return <td key={`${c.id}-${i}-nombre`} className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
+                      case 'conocimientosGenerales':
+                        return (
+                          <td key={`${c.id}-${i}-con`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.conocimientosGenerales !== null
+                              ? <span className="text-primary font-semibold">{fmt(c.conocimientosGenerales)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'ingles':
+                        return (
+                          <td key={`${c.id}-${i}-ing`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.ingles !== null
+                              ? <span className="text-indigo-600 font-semibold">{fmt(c.ingles)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'aptitudes':
+                        return (
+                          <td key={`${c.id}-${i}-apt`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.aptitudes !== null
+                              ? <span className="text-emerald-700 font-semibold">{fmt(c.aptitudes)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'totalFase1':
+                        return (
+                          <td key={`${c.id}-${i}-total`} className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
+                            {c.totalFase1 !== null
+                              ? <span className="text-foreground">{fmt(c.totalFase1)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'estado':
+                        return <td key={`${c.id}-${i}-estado`} className="px-3 py-2.5 whitespace-nowrap"><EstadoBadge estado={c.estado} /></td>
+                      case 'rankingConocimientos':
+                        return (
+                          <td key={`${c.id}-${i}-rkcon`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingConocimientos !== null
+                              ? <span className="text-primary">{c.rankingConocimientos}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'rankingIngles':
+                        return (
+                          <td key={`${c.id}-${i}-rking`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingIngles !== null
+                              ? <span className="text-indigo-600">{c.rankingIngles}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'rankingAptitud':
+                        return (
+                          <td key={`${c.id}-${i}-rkapt`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingAptitud !== null
+                              ? <span className="text-emerald-700">{c.rankingAptitud}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      default:
+                        return null
+                    }
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      {!hasMore && filtered.length > 0 && (
-        <div className="px-4 py-3 border-t border-border bg-muted/20 text-center text-xs text-muted-foreground">
-          Todos los resultados cargados &mdash; {filtered.length.toLocaleString('es-ES')} candidatos
+      {filtered.length > 0 && (
+        <div className="px-4 py-3 border-t border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-muted-foreground">
+            Página {safePage} de {totalPages}
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-2.5 py-1 text-xs rounded border border-border disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            {paginationItems.map((item, index) => (
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-1 text-xs text-muted-foreground">…</span>
+              ) : (
+                <button
+                  key={`page-${item}`}
+                  onClick={() => {
+                    setPage(item)
+                    setPageInput(String(item))
+                  }}
+                  className={`px-2.5 py-1 text-xs rounded border ${safePage === item ? 'border-primary text-primary bg-primary/10' : 'border-border'}`}
+                >
+                  {item}
+                </button>
+              )
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-2.5 py-1 text-xs rounded border border-border disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+            <form
+              className="flex items-center gap-1 ml-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                const next = Number(pageInput)
+                if (!Number.isFinite(next)) return
+                const clamped = Math.min(totalPages, Math.max(1, Math.floor(next)))
+                setPage(clamped)
+                setPageInput(String(clamped))
+              }}
+            >
+              <label htmlFor="tabla-page-input" className="text-xs text-muted-foreground">Ir a</label>
+              <input
+                id="tabla-page-input"
+                type="number"
+                min={1}
+                max={totalPages}
+                value={pageInput}
+                onChange={(event) => setPageInput(event.target.value)}
+                className="w-16 rounded border border-border bg-background px-2 py-1 text-xs"
+              />
+              <button type="submit" className="px-2 py-1 text-xs rounded border border-border">OK</button>
+            </form>
+          </div>
         </div>
       )}
     </div>
