@@ -7,7 +7,9 @@ import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { DataTable } from '@/components/DataTable'
-import { BarChart3, Table2, Loader2, FileSpreadsheet } from 'lucide-react'
+import { AprobadosTable } from '@/components/AprobadosTable'
+import { MOCK_CANDIDATOS } from '@/lib/mockCandidates'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCheck } from 'lucide-react'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -15,16 +17,18 @@ const fetcher = (url: string) =>
     return r.json()
   })
 
-type Tab = 'tabla' | 'graficas'
+type Tab = 'tabla' | 'graficas' | 'aprobados'
 
 export default function Home() {
   const { data, error, isLoading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [tab, setTab] = useState<Tab>('tabla')
 
+  const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
+
   const sortedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return []
-    return [...data].sort((a, b) => {
+    if (!displayData || !Array.isArray(displayData)) return []
+    return [...displayData].sort((a, b) => {
       const key = filters.sortBy as keyof Candidato
       const av = a[key]
       const bv = b[key]
@@ -39,7 +43,8 @@ export default function Home() {
       }
       return filters.sortDir === 'asc' ? cmp : -cmp
     })
-  }, [data, filters.sortBy, filters.sortDir])
+  }, [displayData, filters.sortBy, filters.sortDir])
+
 
   const handleSortChange = (col: string) => {
     setFilters((prev) => ({
@@ -65,23 +70,31 @@ export default function Home() {
 
           {/* Nav links */}
           <nav className="hidden md:flex items-stretch gap-0">
-            {['Resultados', 'Estadísticas', 'Información'].map((item) => (
-              <span
-                key={item}
-                className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
-              >
-                {item}
-              </span>
-            ))}
+            <button
+              onClick={() => setTab('tabla')}
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Resultados
+            </button>
+            <button
+              onClick={() => setTab('graficas')}
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Estadísticas
+            </button>
+            <a
+              href="#informacion"
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Información
+            </a>
           </nav>
 
           {/* Right side badge */}
           <div className="ml-auto flex items-center">
-            {Array.isArray(data) && (
-              <span className="text-xs text-white/80 font-medium">
-                {data.length.toLocaleString('es-ES')} registros
-              </span>
-            )}
+            <span className="text-xs text-white/80 font-medium">
+              {displayData.length.toLocaleString('es-ES')} registros
+            </span>
           </div>
         </div>
       </header>
@@ -98,12 +111,12 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="rounded border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
-            Error al cargar los datos. Por favor, recarga la página.
+          <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+            No se pudieron cargar los datos remotos. Se está usando un dataset de prueba de 100 filas para validar scroll y paginación.
           </div>
         )}
 
-        {Array.isArray(data) && !isLoading && (
+        {!isLoading && (
           <>
             {/* Page heading — ENAIRE style */}
             <div>
@@ -118,7 +131,7 @@ export default function Home() {
             </div>
 
             {/* Stats row */}
-            <StatsCards data={data} />
+            <StatsCards data={displayData} />
 
             {/* Tab bar */}
             <div className="border-b border-border">
@@ -126,6 +139,7 @@ export default function Home() {
                 {[
                   { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
                   { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
+                  { id: 'aprobados' as Tab, label: 'Solo Aprobados', icon: CheckCheck },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -213,17 +227,32 @@ export default function Home() {
                 <ChartsPanel
                   data={
                     filters.estado.length > 0
-                      ? (Array.isArray(data) ? data : []).filter((c) => filters.estado.includes(c.estado))
-                      : (Array.isArray(data) ? data : [])
+                      ? displayData.filter((c) => filters.estado.includes(c.estado))
+                      : displayData
                   }
                 />
+              </div>
+            )}
+
+            {tab === 'aprobados' && (
+              <div className="flex flex-col lg:flex-row gap-6 items-start">
+                <div className="w-full lg:w-60 shrink-0">
+                  <FilterSidebar
+                    filters={filters}
+                    onChange={setFilters}
+                    onReset={() => setFilters(DEFAULT_FILTERS)}
+                  />
+                </div>
+                <div className="flex-1 min-w-0 w-full">
+                  <AprobadosTable data={sortedData} filters={filters} />
+                </div>
               </div>
             )}
           </>
         )}
       </main>
 
-      <footer className="border-t border-border mt-16 py-6 px-6 bg-card">
+      <footer id="informacion" className="border-t border-border mt-16 py-6 px-6 bg-card scroll-mt-20">
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             Listado Provisional de Resultados — Fase 1. Solo consulta. Datos sujetos a modificación.
