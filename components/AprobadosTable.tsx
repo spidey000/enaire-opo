@@ -2,16 +2,18 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { Candidato } from '@/lib/parseCSV'
+import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import { Filters } from './FilterSidebar'
 
 interface Props {
   data: Candidato[]
   filters: Filters
+  onSortChange: (col: string) => void
 }
 
 const PAGE_SIZE = 20
 
-export function AprobadosTable({ data, filters }: Props) {
+export function AprobadosTable({ data, filters, onSortChange }: Props) {
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
 
@@ -60,6 +62,25 @@ export function AprobadosTable({ data, filters }: Props) {
     return items
   }, [safePage, totalPages])
 
+  const cols: { key: string; label: string; align?: string }[] = [
+    { key: 'ranking', label: 'Rank.', align: 'text-right' },
+    { key: 'id', label: 'Identificador' },
+    { key: 'nombre', label: 'Nombre y Apellidos' },
+    { key: 'rankingConocimientos', label: 'Rank conocimientos', align: 'text-right' },
+    { key: 'rankingIngles', label: 'Rank inglés', align: 'text-right' },
+    { key: 'rankingAptitud', label: 'Rank aptitudes', align: 'text-right' },
+  ]
+
+  function SortIcon({ col }: { col: string }) {
+    if (col === 'id') return null
+    if (filters.sortBy === col) {
+      return filters.sortDir === 'asc'
+        ? <ArrowUp className="h-3 w-3 text-primary" />
+        : <ArrowDown className="h-3 w-3 text-primary" />
+    }
+    return <ArrowUpDown className="h-3 w-3 opacity-30" />
+  }
+
   return (
     <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden w-full">
       <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
@@ -73,14 +94,29 @@ export function AprobadosTable({ data, filters }: Props) {
 
       <div className="w-full overflow-hidden">
         <table className="w-full text-xs table-fixed">
+          <colgroup>
+            <col style={{ width: '14.29%' }} />
+            <col style={{ width: '14.29%' }} />
+            <col style={{ width: '28.58%' }} />
+            <col style={{ width: '14.29%' }} />
+            <col style={{ width: '14.29%' }} />
+            <col style={{ width: '14.29%' }} />
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-card">
             <tr className="border-b border-border shadow-[0_1px_0_0_theme(colors.border)]">
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank.</th>
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Identificador</th>
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Nombre y apellidos</th>
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank conocimientos</th>
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank inglés</th>
-              <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank aptitudes</th>
+              {cols.map((col) => (
+                <th
+                  key={col.key}
+                  onClick={() => onSortChange(col.key)}
+                  className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
+                  scope="col"
+                >
+                  <div className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : ''}`}>
+                    {col.label}
+                    <SortIcon col={col.key} />
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">

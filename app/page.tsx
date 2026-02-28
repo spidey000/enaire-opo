@@ -244,7 +244,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="flex-1 min-w-0 w-full">
-                  <AprobadosTable data={sortedData} filters={filters} />
+                  <AprobadosTable data={sortedData} filters={filters} onSortChange={handleSortChange} />
                 </div>
               </div>
             )}
