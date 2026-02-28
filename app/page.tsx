@@ -7,7 +7,7 @@ import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { DataTable } from '@/components/DataTable'
-import { BarChart3, Table2, Loader2, FileSpreadsheet } from 'lucide-react'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCheck } from 'lucide-react'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -15,7 +15,7 @@ const fetcher = (url: string) =>
     return r.json()
   })
 
-type Tab = 'tabla' | 'graficas'
+type Tab = 'tabla' | 'graficas' | 'aprobados'
 
 export default function Home() {
   const { data, error, isLoading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
@@ -41,6 +41,11 @@ export default function Home() {
     })
   }, [data, filters.sortBy, filters.sortDir])
 
+  const aptosData = useMemo(
+    () => sortedData.filter((c) => c.estado === 'APTO/A'),
+    [sortedData]
+  )
+
   const handleSortChange = (col: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -65,14 +70,24 @@ export default function Home() {
 
           {/* Nav links */}
           <nav className="hidden md:flex items-stretch gap-0">
-            {['Resultados', 'Estadísticas', 'Información'].map((item) => (
-              <span
-                key={item}
-                className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
-              >
-                {item}
-              </span>
-            ))}
+            <button
+              onClick={() => setTab('tabla')}
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Resultados
+            </button>
+            <button
+              onClick={() => setTab('graficas')}
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Estadísticas
+            </button>
+            <a
+              href="#informacion"
+              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+            >
+              Información
+            </a>
           </nav>
 
           {/* Right side badge */}
@@ -126,6 +141,7 @@ export default function Home() {
                 {[
                   { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
                   { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
+                  { id: 'aprobados' as Tab, label: 'Solo Aprobados', icon: CheckCheck },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -219,11 +235,50 @@ export default function Home() {
                 />
               </div>
             )}
+
+            {tab === 'aprobados' && (
+              <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">
+                    Visualización simplificada de <span className="font-bold text-emerald-600">aprobados</span>
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {aptosData.length.toLocaleString('es-ES')} candidatos APTO/A
+                  </span>
+                </div>
+                <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
+                  <table className="w-full min-w-[820px] text-xs">
+                    <thead className="sticky top-0 z-20 bg-card">
+                      <tr className="border-b border-border shadow-[0_1px_0_0_theme(colors.border)]">
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank.</th>
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Identificador</th>
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Nombre y apellidos</th>
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank conocimientos</th>
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank inglés</th>
+                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank aptitudes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {aptosData.map((c, i) => (
+                        <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
+                          <td className="px-3 py-2.5 font-mono text-right font-semibold text-primary">{c.ranking ?? '—'}</td>
+                          <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">{c.id}</td>
+                          <td className="px-3 py-2.5 font-medium text-foreground min-w-[260px]">{c.nombre}</td>
+                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingConocimientos ?? '—'}</td>
+                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingIngles ?? '—'}</td>
+                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingAptitud ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>
 
-      <footer className="border-t border-border mt-16 py-6 px-6 bg-card">
+      <footer id="informacion" className="border-t border-border mt-16 py-6 px-6 bg-card scroll-mt-20">
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             Listado Provisional de Resultados — Fase 1. Solo consulta. Datos sujetos a modificación.

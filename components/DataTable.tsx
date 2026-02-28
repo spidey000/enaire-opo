@@ -122,8 +122,8 @@ export function DataTable({ data, filters, onSortChange }: Props) {
 
       {/* Scrollable table wrapper */}
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 z-10">
+        <table className="w-full min-w-[1120px] text-xs">
+          <thead className="sticky top-[57px] z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
               {cols.map((col) => (
                 <th
