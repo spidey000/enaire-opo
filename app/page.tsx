@@ -7,6 +7,7 @@ import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { DataTable } from '@/components/DataTable'
+import { AprobadosTable } from '@/components/AprobadosTable'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCheck } from 'lucide-react'
 
 const fetcher = (url: string) =>
@@ -41,10 +42,6 @@ export default function Home() {
     })
   }, [data, filters.sortBy, filters.sortDir])
 
-  const aptosData = useMemo(
-    () => sortedData.filter((c) => c.estado === 'APTO/A'),
-    [sortedData]
-  )
 
   const handleSortChange = (col: string) => {
     setFilters((prev) => ({
@@ -237,40 +234,16 @@ export default function Home() {
             )}
 
             {tab === 'aprobados' && (
-              <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-                  <span className="text-sm font-medium text-foreground">
-                    Visualización simplificada de <span className="font-bold text-emerald-600">aprobados</span>
-                  </span>
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    {aptosData.length.toLocaleString('es-ES')} candidatos APTO/A
-                  </span>
+              <div className="flex flex-col lg:flex-row gap-6 items-start">
+                <div className="w-full lg:w-60 shrink-0">
+                  <FilterSidebar
+                    filters={filters}
+                    onChange={setFilters}
+                    onReset={() => setFilters(DEFAULT_FILTERS)}
+                  />
                 </div>
-                <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-                  <table className="w-full min-w-[820px] text-xs">
-                    <thead className="sticky top-0 z-20 bg-card">
-                      <tr className="border-b border-border shadow-[0_1px_0_0_theme(colors.border)]">
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank.</th>
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Identificador</th>
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-left">Nombre y apellidos</th>
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank conocimientos</th>
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank inglés</th>
-                        <th className="px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-right">Rank aptitudes</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {aptosData.map((c, i) => (
-                        <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
-                          <td className="px-3 py-2.5 font-mono text-right font-semibold text-primary">{c.ranking ?? '—'}</td>
-                          <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">{c.id}</td>
-                          <td className="px-3 py-2.5 font-medium text-foreground min-w-[260px]">{c.nombre}</td>
-                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingConocimientos ?? '—'}</td>
-                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingIngles ?? '—'}</td>
-                          <td className="px-3 py-2.5 font-mono text-right">{c.rankingAptitud ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex-1 min-w-0 w-full">
+                  <AprobadosTable data={sortedData} filters={filters} />
                 </div>
               </div>
             )}
