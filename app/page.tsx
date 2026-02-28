@@ -17,18 +17,28 @@ const fetcher = (url: string) =>
   })
 
 type Tab = 'tabla' | 'graficas'
+type Phase = 'fase1' | 'fase2' | 'fase3'
 
 export default function Home() {
   const { data, error, isLoading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
+  const [phase, setPhase] = useState<Phase>('fase1')
+
+  const phaseLabels: Record<Phase, string> = {
+    fase1: 'FASE 1',
+    fase2: 'FASE 2',
+    fase3: 'FASE 3',
+  }
 
   const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
+  const isPhaseWithData = phase === 'fase1'
+  const phaseData = isPhaseWithData ? displayData : []
 
-  const sortedData = useMemo(() => {
-    if (!displayData || !Array.isArray(displayData)) return []
-    return [...displayData].sort((a, b) => {
+  const sortedPhaseData = useMemo(() => {
+    if (!phaseData || !Array.isArray(phaseData)) return []
+    return [...phaseData].sort((a, b) => {
       const key = filters.sortBy as keyof Candidato
       const av = a[key]
       const bv = b[key]
@@ -43,7 +53,7 @@ export default function Home() {
       }
       return filters.sortDir === 'asc' ? cmp : -cmp
     })
-  }, [displayData, filters.sortBy, filters.sortDir])
+  }, [phaseData, filters.sortBy, filters.sortDir])
 
 
   const handleSortChange = (col: string) => {
@@ -81,20 +91,21 @@ export default function Home() {
             </span>
           </div>
 
-          {/* Nav links */}
+          {/* Phase tabs */}
           <nav className="hidden md:flex items-stretch gap-0">
-            <button
-              onClick={() => setTab('tabla')}
-              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
-            >
-              Resultados
-            </button>
-            <button
-              onClick={() => setTab('graficas')}
-              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
-            >
-              Estadísticas
-            </button>
+            {(Object.keys(phaseLabels) as Phase[]).map((phaseId) => (
+              <button
+                key={phaseId}
+                onClick={() => setPhase(phaseId)}
+                className={`flex items-center px-4 py-3 text-sm cursor-pointer transition-colors border-b-2 ${
+                  phase === phaseId
+                    ? 'text-white bg-white/10 border-white/90'
+                    : 'text-white/90 hover:text-white hover:bg-white/10 border-transparent'
+                }`}
+              >
+                {phaseLabels[phaseId]}
+              </button>
+            ))}
             <a
               href="#informacion"
               className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
@@ -106,7 +117,7 @@ export default function Home() {
           {/* Right side badge */}
           <div className="ml-auto flex items-center">
             <span className="text-xs text-white/80 font-medium">
-              {displayData.length.toLocaleString('es-ES')} registros
+              {phaseData.length.toLocaleString('es-ES')} registros
             </span>
           </div>
         </div>
@@ -137,14 +148,20 @@ export default function Home() {
                 RESULTADOS
               </p>
               <h1 className="text-3xl font-bold text-foreground text-balance leading-tight">
-                Listado Provisional Fase 1
+                Listado Provisional {phaseLabels[phase]}
               </h1>
               {/* Cyan underline accent */}
               <div className="mt-2 h-0.5 w-10 bg-primary" />
             </div>
 
+            {!isPhaseWithData && (
+              <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+                No hay datos disponibles todavía para {phaseLabels[phase]}.
+              </div>
+            )}
+
             {/* Stats row */}
-            <StatsCards data={displayData} />
+            <StatsCards data={phaseData} />
 
             {/* Tab bar */}
             <div className="border-b border-border">
@@ -183,7 +200,7 @@ export default function Home() {
                 </div>
                 <div className="flex-1 min-w-0 w-full">
                   <DataTable
-                    data={sortedData}
+                    data={sortedPhaseData}
                     filters={filters}
                     onSortChange={handleSortChange}
                     visibleColumns={visibleColumns}
@@ -242,8 +259,8 @@ export default function Home() {
                 <ChartsPanel
                   data={
                     filters.estado.length > 0
-                      ? displayData.filter((c) => filters.estado.includes(c.estado))
-                      : displayData
+                      ? phaseData.filter((c) => filters.estado.includes(c.estado))
+                      : phaseData
                   }
                 />
               </div>
