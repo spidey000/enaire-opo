@@ -43,7 +43,7 @@ const SORT_OPTIONS = [
 
 export const DEFAULT_FILTERS: Filters = {
   search: '',
-  estado: [],
+  estado: ['APTO/A'],
   totalMin: 0,
   totalMax: 150,
   sortBy: 'ranking',
