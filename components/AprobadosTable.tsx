@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Candidato } from '@/lib/parseCSV'
 import { Filters } from './FilterSidebar'
 
@@ -9,7 +9,11 @@ interface Props {
   filters: Filters
 }
 
+const PAGE_SIZE = 20
+
 export function AprobadosTable({ data, filters }: Props) {
+  const [page, setPage] = useState(1)
+
   const filtered = useMemo(() => {
     const search = filters.search.toLowerCase().trim()
     return data.filter((c) => {
@@ -25,6 +29,15 @@ export function AprobadosTable({ data, filters }: Props) {
       return c.estado === 'APTO/A'
     })
   }, [data, filters])
+
+  useEffect(() => {
+    setPage(1)
+  }, [filters, data])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const currentRows = filtered.slice(start, start + PAGE_SIZE)
 
   return (
     <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden w-full">
@@ -50,7 +63,7 @@ export function AprobadosTable({ data, filters }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {filtered.map((c, i) => (
+            {currentRows.map((c, i) => (
               <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
                 <td className="px-3 py-2.5 font-mono text-right font-semibold text-primary">{c.ranking ?? '—'}</td>
                 <td className="px-3 py-2.5 font-mono text-muted-foreground whitespace-nowrap">{c.id}</td>
@@ -70,6 +83,33 @@ export function AprobadosTable({ data, filters }: Props) {
           </tbody>
         </table>
       </div>
+
+      {filtered.length > 0 && (
+        <div className="px-4 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            Mostrando {start + 1}-{Math.min(start + PAGE_SIZE, filtered.length)} de {filtered.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+              className="px-2.5 py-1 text-xs rounded border border-border disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Página {safePage} de {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+              className="px-2.5 py-1 text-xs rounded border border-border disabled:opacity-40"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

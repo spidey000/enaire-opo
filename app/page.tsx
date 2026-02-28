@@ -8,6 +8,7 @@ import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { DataTable } from '@/components/DataTable'
 import { AprobadosTable } from '@/components/AprobadosTable'
+import { MOCK_CANDIDATOS } from '@/lib/mockCandidates'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCheck } from 'lucide-react'
 
 const fetcher = (url: string) =>
@@ -23,9 +24,11 @@ export default function Home() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [tab, setTab] = useState<Tab>('tabla')
 
+  const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
+
   const sortedData = useMemo(() => {
-    if (!data || !Array.isArray(data)) return []
-    return [...data].sort((a, b) => {
+    if (!displayData || !Array.isArray(displayData)) return []
+    return [...displayData].sort((a, b) => {
       const key = filters.sortBy as keyof Candidato
       const av = a[key]
       const bv = b[key]
@@ -40,7 +43,7 @@ export default function Home() {
       }
       return filters.sortDir === 'asc' ? cmp : -cmp
     })
-  }, [data, filters.sortBy, filters.sortDir])
+  }, [displayData, filters.sortBy, filters.sortDir])
 
 
   const handleSortChange = (col: string) => {
@@ -89,11 +92,9 @@ export default function Home() {
 
           {/* Right side badge */}
           <div className="ml-auto flex items-center">
-            {Array.isArray(data) && (
-              <span className="text-xs text-white/80 font-medium">
-                {data.length.toLocaleString('es-ES')} registros
-              </span>
-            )}
+            <span className="text-xs text-white/80 font-medium">
+              {displayData.length.toLocaleString('es-ES')} registros
+            </span>
           </div>
         </div>
       </header>
@@ -110,12 +111,12 @@ export default function Home() {
 
         {/* Error */}
         {error && (
-          <div className="rounded border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
-            Error al cargar los datos. Por favor, recarga la página.
+          <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+            No se pudieron cargar los datos remotos. Se está usando un dataset de prueba de 100 filas para validar scroll y paginación.
           </div>
         )}
 
-        {Array.isArray(data) && !isLoading && (
+        {!isLoading && (
           <>
             {/* Page heading — ENAIRE style */}
             <div>
@@ -130,7 +131,7 @@ export default function Home() {
             </div>
 
             {/* Stats row */}
-            <StatsCards data={data} />
+            <StatsCards data={displayData} />
 
             {/* Tab bar */}
             <div className="border-b border-border">
@@ -226,8 +227,8 @@ export default function Home() {
                 <ChartsPanel
                   data={
                     filters.estado.length > 0
-                      ? (Array.isArray(data) ? data : []).filter((c) => filters.estado.includes(c.estado))
-                      : (Array.isArray(data) ? data : [])
+                      ? displayData.filter((c) => filters.estado.includes(c.estado))
+                      : displayData
                   }
                 />
               </div>
