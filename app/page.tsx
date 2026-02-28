@@ -7,7 +7,6 @@ import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
-import { MOCK_CANDIDATOS } from '@/lib/mockCandidates'
 import { BarChart3, Table2, Loader2, FileSpreadsheet } from 'lucide-react'
 
 const fetcher = (url: string) =>
@@ -58,7 +57,7 @@ export default function Home() {
     fase3: 'FASE 3',
   }
 
-  const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
+  const displayData = Array.isArray(data) ? data : []
   const isPhaseWithData = phase === 'fase1'
   const phaseData = isPhaseWithData ? displayData : []
 
@@ -149,7 +148,7 @@ export default function Home() {
 
         {error && (
           <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-            No se pudieron cargar los datos remotos. Se está usando un dataset de prueba de 100 filas para validar scroll y paginación.
+            No se pudieron cargar los datos desde public/data/resultados-fase1.csv.
           </div>
         )}
 
