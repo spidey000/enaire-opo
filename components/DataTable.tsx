@@ -40,9 +40,26 @@ function fmt(v: number | null): string {
   return v.toFixed(2)
 }
 
+const cols: { key: string; label: string; align?: string; defaultVisible?: boolean }[] = [
+  { key: 'ranking', label: 'Rank.', align: 'text-right', defaultVisible: true },
+  { key: 'id', label: 'Identificador', defaultVisible: false },
+  { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
+  { key: 'conocimientosGenerales', label: 'Con. Gen.', align: 'text-right', defaultVisible: true },
+  { key: 'ingles', label: 'Inglés', align: 'text-right', defaultVisible: true },
+  { key: 'aptitudes', label: 'Aptitudes', align: 'text-right', defaultVisible: true },
+  { key: 'totalFase1', label: 'Total F1', align: 'text-right', defaultVisible: true },
+  { key: 'estado', label: 'Estado', defaultVisible: true },
+  { key: 'rankingConocimientos', label: 'Rk. Con.', align: 'text-right', defaultVisible: true },
+  { key: 'rankingIngles', label: 'Rk. Ing.', align: 'text-right', defaultVisible: true },
+  { key: 'rankingAptitud', label: 'Rk. Apt.', align: 'text-right', defaultVisible: true },
+]
+
+const defaultVisibleColumns = Object.fromEntries(cols.map((col) => [col.key, col.defaultVisible !== false])) as Record<string, boolean>
+
 export function DataTable({ data, filters, onSortChange }: Props) {
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(defaultVisibleColumns)
 
   const filtered = useMemo(() => {
     const search = filters.search.toLowerCase().trim()
@@ -93,19 +110,13 @@ export function DataTable({ data, filters, onSortChange }: Props) {
     return items
   }, [safePage, totalPages])
 
-  const cols: { key: string; label: string; align?: string }[] = [
-    { key: 'ranking', label: 'Rank.' },
-    { key: 'id', label: 'Identificador' },
-    { key: 'nombre', label: 'Nombre y Apellidos' },
-    { key: 'conocimientosGenerales', label: 'Con. Gen.', align: 'text-right' },
-    { key: 'ingles', label: 'Inglés', align: 'text-right' },
-    { key: 'aptitudes', label: 'Aptitudes', align: 'text-right' },
-    { key: 'totalFase1', label: 'Total F1', align: 'text-right' },
-    { key: 'estado', label: 'Estado' },
-    { key: 'rankingConocimientos', label: 'Rk. Con.', align: 'text-right' },
-    { key: 'rankingIngles', label: 'Rk. Ing.', align: 'text-right' },
-    { key: 'rankingAptitud', label: 'Rk. Apt.', align: 'text-right' },
-  ]
+  const displayedCols = cols.filter((col) => visibleColumns[col.key])
+
+  const colUnits = displayedCols.map((col) => {
+    if (col.key === 'nombre' && !visibleColumns.id) return 2
+    return 1
+  })
+  const totalUnits = colUnits.reduce((sum, units) => sum + units, 0)
 
   function SortIcon({ col }: { col: string }) {
     if (col === 'id' || col === 'estado') return null
@@ -129,11 +140,39 @@ export function DataTable({ data, filters, onSortChange }: Props) {
         </span>
       </div>
 
+      <div className="px-4 py-3 border-b border-border bg-muted/20">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Columnas visibles</p>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {cols.map((col) => (
+            <label key={`toggle-${col.key}`} className="inline-flex items-center gap-2 text-xs text-foreground">
+              <input
+                type="checkbox"
+                checked={visibleColumns[col.key]}
+                onChange={() => {
+                  setVisibleColumns((prev) => {
+                    const next = { ...prev, [col.key]: !prev[col.key] }
+                    const hasAny = Object.values(next).some(Boolean)
+                    return hasAny ? next : prev
+                  })
+                }}
+                className="h-3.5 w-3.5 rounded border-border"
+              />
+              {col.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
       <div className="w-full overflow-hidden" aria-label="Tabla de resultados paginada">
         <table className="w-full text-xs table-fixed border-separate border-spacing-0">
+          <colgroup>
+            {displayedCols.map((col, index) => (
+              <col key={`col-${col.key}`} style={{ width: `${(colUnits[index] / totalUnits) * 100}%` }} />
+            ))}
+          </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
-              {cols.map((col) => (
+              {displayedCols.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => onSortChange(col.key)}
@@ -151,60 +190,91 @@ export function DataTable({ data, filters, onSortChange }: Props) {
           <tbody className="divide-y divide-border/60">
             {currentRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                <td colSpan={Math.max(1, displayedCols.length)} className="px-4 py-16 text-center text-sm text-muted-foreground">
                   No se encontraron candidatos con los filtros aplicados.
                 </td>
               </tr>
             ) : (
-              <>
-                {currentRows.map((c, i) => (
-                  <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
-                      {c.ranking !== null
-                        ? <span className="font-bold text-primary">{c.ranking}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{c.id}</td>
-                    <td className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.conocimientosGenerales !== null
-                        ? <span className="text-primary font-semibold">{fmt(c.conocimientosGenerales)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.ingles !== null
-                        ? <span className="text-indigo-600 font-semibold">{fmt(c.ingles)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.aptitudes !== null
-                        ? <span className="text-emerald-700 font-semibold">{fmt(c.aptitudes)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
-                      {c.totalFase1 !== null
-                        ? <span className="text-foreground">{fmt(c.totalFase1)}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap"><EstadoBadge estado={c.estado} /></td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingConocimientos !== null
-                        ? <span className="text-primary">{c.rankingConocimientos}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingIngles !== null
-                        ? <span className="text-indigo-600">{c.rankingIngles}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                      {c.rankingAptitud !== null
-                        ? <span className="text-emerald-700">{c.rankingAptitud}</span>
-                        : <span className="text-muted-foreground/40">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </>
+              currentRows.map((c, i) => (
+                <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
+                  {displayedCols.map((col) => {
+                    switch (col.key) {
+                      case 'ranking':
+                        return (
+                          <td key={`${c.id}-${i}-ranking`} className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
+                            {c.ranking !== null
+                              ? <span className="font-bold text-primary">{c.ranking}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'id':
+                        return <td key={`${c.id}-${i}-id`} className="px-3 py-2.5 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{c.id}</td>
+                      case 'nombre':
+                        return <td key={`${c.id}-${i}-nombre`} className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
+                      case 'conocimientosGenerales':
+                        return (
+                          <td key={`${c.id}-${i}-con`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.conocimientosGenerales !== null
+                              ? <span className="text-primary font-semibold">{fmt(c.conocimientosGenerales)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'ingles':
+                        return (
+                          <td key={`${c.id}-${i}-ing`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.ingles !== null
+                              ? <span className="text-indigo-600 font-semibold">{fmt(c.ingles)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'aptitudes':
+                        return (
+                          <td key={`${c.id}-${i}-apt`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.aptitudes !== null
+                              ? <span className="text-emerald-700 font-semibold">{fmt(c.aptitudes)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'totalFase1':
+                        return (
+                          <td key={`${c.id}-${i}-total`} className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
+                            {c.totalFase1 !== null
+                              ? <span className="text-foreground">{fmt(c.totalFase1)}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'estado':
+                        return <td key={`${c.id}-${i}-estado`} className="px-3 py-2.5 whitespace-nowrap"><EstadoBadge estado={c.estado} /></td>
+                      case 'rankingConocimientos':
+                        return (
+                          <td key={`${c.id}-${i}-rkcon`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingConocimientos !== null
+                              ? <span className="text-primary">{c.rankingConocimientos}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'rankingIngles':
+                        return (
+                          <td key={`${c.id}-${i}-rking`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingIngles !== null
+                              ? <span className="text-indigo-600">{c.rankingIngles}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      case 'rankingAptitud':
+                        return (
+                          <td key={`${c.id}-${i}-rkapt`} className="px-3 py-2.5 font-mono text-right text-[11px]">
+                            {c.rankingAptitud !== null
+                              ? <span className="text-emerald-700">{c.rankingAptitud}</span>
+                              : <span className="text-muted-foreground/40">—</span>}
+                          </td>
+                        )
+                      default:
+                        return null
+                    }
+                  })}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
