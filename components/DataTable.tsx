@@ -3,12 +3,22 @@
 import { useMemo, useState, useEffect } from 'react'
 import { Candidato } from '@/lib/parseCSV'
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
-import { Filters } from './FilterSidebar'
+import type { Filters } from './FilterSidebar'
+
+export interface TableColumn {
+  key: string
+  label: string
+  align?: string
+  defaultVisible?: boolean
+}
+
+export type ColumnVisibility = Record<string, boolean>
 
 interface Props {
   data: Candidato[]
   filters: Filters
   onSortChange: (col: string) => void
+  visibleColumns: ColumnVisibility
 }
 
 const PAGE_SIZE = 25
@@ -40,7 +50,7 @@ function fmt(v: number | null): string {
   return v.toFixed(2)
 }
 
-const cols: { key: string; label: string; align?: string; defaultVisible?: boolean }[] = [
+export const TABLE_COLUMNS: TableColumn[] = [
   { key: 'ranking', label: 'Rank.', align: 'text-right', defaultVisible: true },
   { key: 'id', label: 'Identificador', defaultVisible: false },
   { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
@@ -54,12 +64,13 @@ const cols: { key: string; label: string; align?: string; defaultVisible?: boole
   { key: 'rankingAptitud', label: 'Rk. Apt.', align: 'text-right', defaultVisible: true },
 ]
 
-const defaultVisibleColumns = Object.fromEntries(cols.map((col) => [col.key, col.defaultVisible !== false])) as Record<string, boolean>
+export const DEFAULT_VISIBLE_COLUMNS: ColumnVisibility = Object.fromEntries(
+  TABLE_COLUMNS.map((col) => [col.key, col.defaultVisible !== false])
+) as ColumnVisibility
 
-export function DataTable({ data, filters, onSortChange }: Props) {
+export function DataTable({ data, filters, onSortChange, visibleColumns }: Props) {
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
-  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(defaultVisibleColumns)
 
   const filtered = useMemo(() => {
     const search = filters.search.toLowerCase().trim()
@@ -110,7 +121,7 @@ export function DataTable({ data, filters, onSortChange }: Props) {
     return items
   }, [safePage, totalPages])
 
-  const displayedCols = cols.filter((col) => visibleColumns[col.key])
+  const displayedCols = TABLE_COLUMNS.filter((col) => visibleColumns[col.key])
 
   const colUnits = displayedCols.map((col) => {
     if (col.key === 'nombre' && !visibleColumns.id) return 2
@@ -138,29 +149,6 @@ export function DataTable({ data, filters, onSortChange }: Props) {
         <span className="text-xs text-muted-foreground tabular-nums">
           Mostrando {filtered.length === 0 ? 0 : start + 1}-{Math.min(start + PAGE_SIZE, filtered.length)} de {filtered.length.toLocaleString('es-ES')}
         </span>
-      </div>
-
-      <div className="px-4 py-3 border-b border-border bg-muted/20">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Columnas visibles</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {cols.map((col) => (
-            <label key={`toggle-${col.key}`} className="inline-flex items-center gap-2 text-xs text-foreground">
-              <input
-                type="checkbox"
-                checked={visibleColumns[col.key]}
-                onChange={() => {
-                  setVisibleColumns((prev) => {
-                    const next = { ...prev, [col.key]: !prev[col.key] }
-                    const hasAny = Object.values(next).some(Boolean)
-                    return hasAny ? next : prev
-                  })
-                }}
-                className="h-3.5 w-3.5 rounded border-border"
-              />
-              {col.label}
-            </label>
-          ))}
-        </div>
       </div>
 
       <div className="w-full overflow-hidden" aria-label="Tabla de resultados paginada">

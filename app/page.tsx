@@ -6,7 +6,7 @@ import { Candidato } from '@/lib/parseCSV'
 import { StatsCards } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
-import { DataTable } from '@/components/DataTable'
+import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { MOCK_CANDIDATOS } from '@/lib/mockCandidates'
 import { BarChart3, Table2, Loader2, FileSpreadsheet } from 'lucide-react'
 
@@ -21,6 +21,7 @@ type Tab = 'tabla' | 'graficas'
 export default function Home() {
   const { data, error, isLoading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
 
   const displayData = Array.isArray(data) ? data : MOCK_CANDIDATOS
@@ -51,6 +52,19 @@ export default function Home() {
       sortBy: col,
       sortDir: prev.sortBy === col && prev.sortDir === 'asc' ? 'desc' : 'asc',
     }))
+  }
+
+  const handleToggleColumn = (key: string) => {
+    setVisibleColumns((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      const hasAnyVisible = Object.values(next).some(Boolean)
+      return hasAnyVisible ? next : prev
+    })
+  }
+
+  const handleResetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
   }
 
   return (
@@ -162,7 +176,9 @@ export default function Home() {
                   <FilterSidebar
                     filters={filters}
                     onChange={setFilters}
-                    onReset={() => setFilters(DEFAULT_FILTERS)}
+                    onReset={handleResetFilters}
+                    visibleColumns={visibleColumns}
+                    onToggleColumn={handleToggleColumn}
                   />
                 </div>
                 <div className="flex-1 min-w-0 w-full">
@@ -170,6 +186,7 @@ export default function Home() {
                     data={sortedData}
                     filters={filters}
                     onSortChange={handleSortChange}
+                    visibleColumns={visibleColumns}
                   />
                 </div>
               </div>
