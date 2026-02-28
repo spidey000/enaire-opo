@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { parseCSV } from '@/lib/parseCSV'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 
-const CSV_URL =
-  'https://blobs.vusercontent.net/blob/ANEXO%20I_LISTADO%20PROVISIONAL%20RESULTADOS%20FASE%201-I6EZLq6EYXcsqGn24vHSJ0Q8k0ua3n.csv'
+const CSV_PATH = path.join(process.cwd(), 'public/data/resultados-fase1.csv')
 
 // In-memory cache that survives warm lambda invocations
 let cachedData: ReturnType<typeof parseCSV> | null = null
@@ -10,16 +11,7 @@ let cachedData: ReturnType<typeof parseCSV> | null = null
 export async function GET() {
   try {
     if (!cachedData) {
-      // Fetch the original CSV and decode as latin1/windows-1252 via the byte-level trick:
-      // fetch gives us ArrayBuffer, we decode manually so accented chars are preserved.
-      const res = await fetch(CSV_URL, { next: { revalidate: 86400 } })
-      if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`)
-
-      const buffer = await res.arrayBuffer()
-      // Decode as windows-1252 (latin1) — this is what the original file uses
-      const decoder = new TextDecoder('windows-1252')
-      const raw = decoder.decode(buffer)
-
+      const raw = await fs.readFile(CSV_PATH, 'utf-8')
       cachedData = parseCSV(raw)
     }
 
