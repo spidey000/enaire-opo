@@ -148,8 +148,8 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
         </span>
       </div>
 
-      <div className="w-full overflow-hidden" aria-label="Tabla de resultados paginada">
-        <table className="w-full text-xs table-fixed border-separate border-spacing-0">
+      <div className="w-full overflow-x-auto" aria-label="Tabla de resultados paginada">
+        <table className="w-full min-w-[920px] text-xs table-fixed border-separate border-spacing-0">
           <colgroup>
             {displayedCols.map((col, index) => (
               <col key={`col-${col.key}`} style={{ width: `${(colUnits[index] / totalUnits) * 100}%` }} />
@@ -181,7 +181,10 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
               </tr>
             ) : (
               currentRows.map((c, i) => (
-                <tr key={`${c.id}-${i}`} className="hover:bg-primary/5 transition-colors">
+                <tr
+                  key={`${c.id}-${i}`}
+                  className={`${i % 2 === 0 ? 'bg-card' : 'bg-muted/20'} hover:bg-primary/5 transition-colors`}
+                >
                   {displayedCols.map((col) => {
                     switch (col.key) {
                       case 'ranking':
