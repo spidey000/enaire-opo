@@ -26,9 +26,20 @@ const repairKnownMojibake = (text: string) =>
     .replaceAll('Ã±', 'ñ')
     .replaceAll('Ã‘', 'Ñ')
 
+const decodeCsvBuffer = (buffer: Buffer) => {
+  const utf8 = buffer.toString('utf-8')
+
+  // If UTF-8 decoding produced replacement chars (�), fallback to CP-1252.
+  if (utf8.includes('�')) {
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+
+  return utf8
+}
+
 const loadCsv = async () => {
-  const raw = await fs.readFile(CSV_PATH, 'utf-8')
-  return repairKnownMojibake(cleanCsv(raw))
+  const raw = await fs.readFile(CSV_PATH)
+  return repairKnownMojibake(cleanCsv(decodeCsvBuffer(raw)))
 }
 
 export async function GET() {
