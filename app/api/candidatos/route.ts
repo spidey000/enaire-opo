@@ -8,10 +8,44 @@ const CSV_PATH = path.join(process.cwd(), 'public/data/resultados-fase1.csv')
 // In-memory cache that survives warm lambda invocations
 let cachedData: ReturnType<typeof parseCSV> | null = null
 
+const cleanCsv = (text: string) => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim()
+
+const repairKnownMojibake = (text: string) =>
+  text
+    // Frequent reversible mojibake patterns (if present)
+    .replaceAll('Ã¡', 'á')
+    .replaceAll('Ã©', 'é')
+    .replaceAll('Ã­', 'í')
+    .replaceAll('Ã³', 'ó')
+    .replaceAll('Ãº', 'ú')
+    .replaceAll('Ã', 'Á')
+    .replaceAll('Ã‰', 'É')
+    .replaceAll('Ã', 'Í')
+    .replaceAll('Ã“', 'Ó')
+    .replaceAll('Ãš', 'Ú')
+    .replaceAll('Ã±', 'ñ')
+    .replaceAll('Ã‘', 'Ñ')
+
+const decodeCsvBuffer = (buffer: Buffer) => {
+  const utf8 = buffer.toString('utf-8')
+
+  // If UTF-8 decoding produced replacement chars (�), fallback to CP-1252.
+  if (utf8.includes('�')) {
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+
+  return utf8
+}
+
+const loadCsv = async () => {
+  const raw = await fs.readFile(CSV_PATH)
+  return repairKnownMojibake(cleanCsv(decodeCsvBuffer(raw)))
+}
+
 export async function GET() {
   try {
     if (!cachedData) {
-      const raw = await fs.readFile(CSV_PATH, 'utf-8')
+      const raw = await loadCsv()
       cachedData = parseCSV(raw)
     }
 
