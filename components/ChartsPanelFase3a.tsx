@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { CandidatoFase3 } from '@/lib/parseCSV'
-import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
+import { buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
 import {
   BarChart,
   Bar,
@@ -155,11 +155,17 @@ export function ChartsPanelFase3a({ data }: Props) {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ScoreDistributionTable
-          title="Distribución por tramos — Puntuación Fase 3A"
-          buckets={buckets}
-          total={bucketTotal}
-        />
+        <ChartCard title="Distribución por tramos" sub="Puntuación Fase 3A — agrupado cada 5 puntos">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={buckets} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+              <XAxis dataKey="rangeLabel" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval={0} angle={-35} textAnchor="end" height={60} />
+              <YAxis tick={TICK} tickLine={false} axisLine={false} />
+              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Tramo ${l}`} />
+              <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
         <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>

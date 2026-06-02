@@ -1,52 +1,9 @@
 'use client'
 
-interface ScoreBucket {
+export interface ScoreBucket {
   rangeLabel: string
   count: number
   percentage: string
-}
-
-interface Props {
-  title: string
-  buckets: ScoreBucket[]
-  total: number
-}
-
-export function ScoreDistributionTable({ title, buckets, total }: Props) {
-  if (!buckets.length) return null
-
-  return (
-    <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
-      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-        {title}
-      </h4>
-      <table className="w-full min-w-[320px] text-xs">
-        <thead>
-          <tr className="border-b border-border/60">
-            <th className="py-2 pr-3 text-left font-semibold text-muted-foreground uppercase tracking-wider">Tramo</th>
-            <th className="py-2 pr-3 text-right font-semibold text-muted-foreground uppercase tracking-wider">Candidatos</th>
-            <th className="py-2 text-right font-semibold text-muted-foreground uppercase tracking-wider">%</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/40">
-          {buckets.map((b) => (
-            <tr key={b.rangeLabel} className="hover:bg-muted/30 transition-colors">
-              <td className="py-1.5 pr-3 font-mono text-foreground font-medium">{b.rangeLabel}</td>
-              <td className="py-1.5 pr-3 text-right font-mono text-foreground">{b.count.toLocaleString('es-ES')}</td>
-              <td className="py-1.5 text-right font-mono text-muted-foreground">{b.percentage}%</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-border font-semibold">
-            <td className="py-2 pr-3 text-foreground">Total</td>
-            <td className="py-2 pr-3 text-right font-mono text-foreground">{total.toLocaleString('es-ES')}</td>
-            <td className="py-2 text-right font-mono text-muted-foreground">100%</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  )
 }
 
 /**

@@ -16,7 +16,7 @@ import { DataTableFase2, FiltersFase2 } from '@/components/DataTableFase2'
 import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
 import { DataTableGlobal, FiltersGlobal, DEFAULT_FILTERS_GLOBAL, GlobalColumnVisibility, GLOBAL_DEFAULT_VISIBLE_COLUMNS } from '@/components/DataTableGlobal'
 import { FasePendiente } from '@/components/FasePendiente'
-import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
+import { buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag } from 'lucide-react'
 import {
   BarChart,
@@ -873,14 +873,44 @@ export default function Home() {
   )
 }
 
-/** Global charts: distribution table + ungrouped bar chart */
+/** Global charts: grouped/ungrouped charts + destacados */
 function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
   const scores = useMemo(
     () => data.filter((c) => c.puntuacionGlobal !== null).map((c) => c.puntuacionGlobal!),
     [data]
   )
-  const { buckets, total } = useMemo(() => buildScoreBuckets(scores, 10), [scores])
+  const { buckets } = useMemo(() => buildScoreBuckets(scores, 10), [scores])
   const ungrouped = useMemo(() => buildUngroupedHistogram(scores), [scores])
+
+  const statsDestacados = useMemo(() => {
+    if (!data.length) return null
+
+    // Mayor subida F1→F3A
+    const mejorSubida = data.reduce((best, c) =>
+      (c.evolF1aF3a ?? -Infinity) > (best.evolF1aF3a ?? -Infinity) ? c : best
+    )
+    // Mayor bajada F1→F3A
+    const mejorBajada = data.reduce((worst, c) =>
+      (c.evolF1aF3a ?? Infinity) < (worst.evolF1aF3a ?? Infinity) ? c : worst
+    )
+    // Nota máxima y mínima
+    const notaMax = data.reduce((best, c) =>
+      (c.puntuacionGlobal ?? -Infinity) > (best.puntuacionGlobal ?? -Infinity) ? c : best
+    )
+    const notaMin = data.reduce((worst, c) =>
+      (c.puntuacionGlobal ?? Infinity) < (worst.puntuacionGlobal ?? Infinity) ? c : worst
+    )
+    // Mediana
+    const sortedScores = [...data].sort(
+      (a, b) => (a.puntuacionGlobal ?? 0) - (b.puntuacionGlobal ?? 0)
+    )
+    const mid = Math.floor(sortedScores.length / 2)
+    const mediana = sortedScores.length > 0
+      ? sortedScores[mid].puntuacionGlobal
+      : null
+
+    return { mejorSubida, mejorBajada, notaMax, notaMin, mediana }
+  }, [data])
 
   const PRIMARY = '#009FE3'
   const TICK = { fontSize: 11, fill: '#6b7280' }
@@ -899,6 +929,7 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Ungrouped */}
         <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
           <div className="mb-1">
             <h3 className="text-sm font-bold text-foreground">Distribución de Puntuación Global (sin agrupar)</h3>
@@ -910,22 +941,74 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
                 <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
                 <YAxis tick={TICK} tickLine={false} axisLine={false} />
-                <Tooltip
-                  {...TOOLTIP_STYLE}
-                  formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
-                  labelFormatter={(l) => `Puntuación ${l}`}
-                />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Puntuación ${l}`} />
                 <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* Grouped */}
+        <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
+          <div className="mb-1">
+            <h3 className="text-sm font-bold text-foreground">Distribución por tramos</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Puntuación Global — agrupado cada 10 puntos</p>
+          </div>
+          <div className="mt-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={buckets} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+                <XAxis dataKey="rangeLabel" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval={0} angle={-35} textAnchor="end" height={60} />
+                <YAxis tick={TICK} tickLine={false} axisLine={false} />
+                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Tramo ${l}`} />
+                <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
-      <ScoreDistributionTable
-        title="Distribución por tramos — Puntuación Global"
-        buckets={buckets}
-        total={total}
-      />
+
+      {/* Estadísticas destacadas */}
+      {statsDestacados && (
+        <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
+          <div className="mb-4">
+            <h3 className="text-sm font-bold text-foreground">Estadísticas destacadas</h3>
+            <div className="mt-1.5 h-0.5 w-6 bg-primary" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-sm border border-emerald-200 bg-emerald-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-1">🏆 Mayor subida F1→F3A</p>
+              <p className="text-sm font-semibold text-emerald-900 truncate" title={statsDestacados.mejorSubida.nombre}>{statsDestacados.mejorSubida.nombre}</p>
+              <p className="text-xs text-emerald-700 font-mono mt-0.5">+{statsDestacados.mejorSubida.evolF1aF3a} puestos</p>
+            </div>
+            <div className="rounded-sm border border-red-200 bg-red-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-red-700 mb-1">📉 Mayor bajada F1→F3A</p>
+              <p className="text-sm font-semibold text-red-900 truncate" title={statsDestacados.mejorBajada.nombre}>{statsDestacados.mejorBajada.nombre}</p>
+              <p className="text-xs text-red-700 font-mono mt-0.5">{statsDestacados.mejorBajada.evolF1aF3a} puestos</p>
+            </div>
+            <div className="rounded-sm border border-amber-200 bg-amber-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1">🥇 Nota máxima</p>
+              <p className="text-sm font-semibold text-amber-900 truncate" title={statsDestacados.notaMax.nombre}>{statsDestacados.notaMax.nombre}</p>
+              <p className="text-xs text-amber-700 font-mono mt-0.5">{statsDestacados.notaMax.puntuacionGlobal?.toFixed(2)} pts</p>
+            </div>
+            <div className="rounded-sm border border-blue-200 bg-blue-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-blue-700 mb-1">🥉 Nota mínima</p>
+              <p className="text-sm font-semibold text-blue-900 truncate" title={statsDestacados.notaMin.nombre}>{statsDestacados.notaMin.nombre}</p>
+              <p className="text-xs text-blue-700 font-mono mt-0.5">{statsDestacados.notaMin.puntuacionGlobal?.toFixed(2)} pts</p>
+            </div>
+            <div className="rounded-sm border border-purple-200 bg-purple-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-purple-700 mb-1">📊 Nota mediana</p>
+              <p className="text-sm font-semibold text-purple-900">—</p>
+              <p className="text-xs text-purple-700 font-mono mt-0.5">{statsDestacados.mediana?.toFixed(2) ?? '—'} pts</p>
+            </div>
+            <div className="rounded-sm border border-gray-200 bg-gray-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-700 mb-1">📋 Total candidatos</p>
+              <p className="text-sm font-semibold text-gray-900">—</p>
+              <p className="text-xs text-gray-700 font-mono mt-0.5">{data.length} candidatos</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
