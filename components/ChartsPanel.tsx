@@ -333,9 +333,9 @@ export function ChartsPanel({ data }: Props) {
           <Bar data={bucketsBarData} options={bucketsBarOptions} />
         </ChartCard>
 
-        <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
+        <div className="bg-card border border-border rounded-sm p-4 shadow-sm">
           <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
-          <table className="w-full min-w-[420px] text-xs">
+          <table className="w-full text-xs">
             <tbody className="divide-y divide-border/60">
               {commonStats.map((row) => (
                 <tr key={row.label}>
