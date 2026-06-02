@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { Candidato } from '@/lib/parseCSV'
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, X } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, X, Eye, List } from 'lucide-react'
 import type { Filters } from './FilterSidebar'
 
 export interface TableColumn {
@@ -51,7 +51,7 @@ function fmt(v: number | null): string {
 }
 
 export const TABLE_COLUMNS: TableColumn[] = [
-  { key: 'ranking', label: 'Rank.', align: 'text-right', defaultVisible: true },
+  { key: 'ranking', label: '#', align: 'text-right', defaultVisible: true },
   { key: 'id', label: 'Identificador', defaultVisible: false },
   { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
   { key: 'conocimientosGenerales', label: 'Con. Gen.', align: 'text-right', defaultVisible: false },
@@ -177,7 +177,9 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
               onClick={() => setShowAll(!showAll)}
               className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
             >
-              {showAll ? '📄 25/página' : '📋 Ver todos'}
+              <span className="inline-flex items-center gap-1">
+              {showAll ? <><List className="h-3.5 w-3.5" /> 25/página</> : <><Eye className="h-3.5 w-3.5" /> Ver todos</>}
+            </span>
             </button>
             <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden sm:inline">
             {showAll

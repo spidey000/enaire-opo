@@ -63,7 +63,7 @@ export function AprobadosTable({ data, filters, onSortChange }: Props) {
   }, [safePage, totalPages])
 
   const cols: { key: string; label: string; align?: string }[] = [
-    { key: 'ranking', label: 'Rank.', align: 'text-right' },
+    { key: 'ranking', label: '#', align: 'text-right' },
     { key: 'id', label: 'Identificador' },
     { key: 'nombre', label: 'Nombre y Apellidos' },
     { key: 'rankingConocimientos', label: 'Rank conocimientos', align: 'text-right' },

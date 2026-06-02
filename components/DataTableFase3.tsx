@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { CandidatoFase3, ResultadoFase3 } from '@/lib/parseCSV'
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, X } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, X, Eye, List } from 'lucide-react'
 
 export interface FiltersFase3 {
   search: string
@@ -47,7 +47,7 @@ function fmt(v: number | null): string {
 }
 
 export const COLUMNS_FASE3 = [
-  { key: 'ranking', label: 'Rank.', align: 'text-right' },
+  { key: 'ranking', label: '#', align: 'text-right' },
   { key: 'id', label: 'Identificador' },
   { key: 'nombre', label: 'Nombre y Apellidos' },
   { key: 'resultado3a', label: 'Resultado 3A' },
@@ -161,7 +161,9 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
               onClick={() => setShowAll(!showAll)}
               className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
             >
-              {showAll ? '📄 25/página' : '📋 Ver todos'}
+              <span className="inline-flex items-center gap-1">
+                {showAll ? <><List className="h-3.5 w-3.5" /> 25/página</> : <><Eye className="h-3.5 w-3.5" /> Ver todos</>}
+              </span>
             </button>
             <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden sm:inline">
             {showAll

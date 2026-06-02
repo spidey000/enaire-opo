@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { CandidatoGlobal } from '@/lib/parseCSV'
-import { ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus, Search, X } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus, Search, X, Eye, List } from 'lucide-react'
 
 // --- Column configuration (exported for FilterSidebarGlobal) ---
 
@@ -16,7 +16,7 @@ export interface GlobalColumn {
 export type GlobalColumnVisibility = Record<string, boolean>
 
 export const GLOBAL_COLUMNS: GlobalColumn[] = [
-  { key: 'rankingGlobal', label: 'Rank.', align: 'text-right', defaultVisible: true },
+  { key: 'rankingGlobal', label: '#', align: 'text-right', defaultVisible: true },
   { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
   { key: 'totalFase1', label: 'Total F1', align: 'text-right', defaultVisible: false },
   { key: 'puntuacionFase2', label: 'Punt. F2', align: 'text-right', defaultVisible: false },
@@ -243,7 +243,9 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
               onClick={() => setShowAll(!showAll)}
               className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
             >
-              {showAll ? '📄 25/página' : '📋 Ver todos'}
+              <span className="inline-flex items-center gap-1">
+                {showAll ? <><List className="h-3.5 w-3.5" /> 25/página</> : <><Eye className="h-3.5 w-3.5" /> Ver todos</>}
+              </span>
             </button>
             <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden sm:inline">
             {showAll

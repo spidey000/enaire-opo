@@ -17,7 +17,7 @@ import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
 import { DataTableGlobal, FiltersGlobal, DEFAULT_FILTERS_GLOBAL, GlobalColumnVisibility, GLOBAL_DEFAULT_VISIBLE_COLUMNS } from '@/components/DataTableGlobal'
 import { FasePendiente } from '@/components/FasePendiente'
 import { buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
-import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag } from 'lucide-react'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag, RotateCcw } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
 import type { ChartData, ChartOptions } from 'chart.js'
 import '@/lib/chart-config'
@@ -595,9 +595,9 @@ export default function Home() {
                       {filters.estado.length > 0 && (
                         <button
                           onClick={() => setFilters((f) => ({ ...f, estado: [] }))}
-                          className="text-xs text-primary underline underline-offset-2"
+                          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
                         >
-                          Ver todos
+                          <RotateCcw className="h-3 w-3" /> Ver todos
                         </button>
                       )}
                     </div>
@@ -712,9 +712,9 @@ export default function Home() {
                       {fase2Filters.estado.length > 0 && (
                         <button
                           onClick={() => setFase2Filters((f) => ({ ...f, estado: [] }))}
-                          className="text-xs text-primary underline underline-offset-2"
+                          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
                         >
-                          Ver todos
+                          <RotateCcw className="h-3 w-3" /> Ver todos
                         </button>
                       )}
                     </div>
@@ -819,9 +819,9 @@ export default function Home() {
                       {fase3Filters.resultado.length > 0 && (
                         <button
                           onClick={() => setFase3Filters((f) => ({ ...f, resultado: [] }))}
-                          className="text-xs text-primary underline underline-offset-2"
+                          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
                         >
-                          Ver todos
+                          <RotateCcw className="h-3 w-3" /> Ver todos
                         </button>
                       )}
                     </div>
