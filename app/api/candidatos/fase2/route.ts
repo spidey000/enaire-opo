@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { parseFase2CSV } from '@/lib/parseCSV'
+import { parseFase2CSV, type CandidatoFase2 } from '@/lib/parseCSV'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
 const CSV_PATH = path.join(process.cwd(), 'public/data/resultados-fase2.csv')
 
-let cachedData: ReturnType<typeof parseFase2CSV> | null = null
+let cachedData: CandidatoFase2[] | null = null
 
 const cleanCsv = (text: string) => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim()
 

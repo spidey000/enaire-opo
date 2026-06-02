@@ -88,6 +88,7 @@ export default function Home() {
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
   const [phase, setPhase] = useState<Phase>('fase1')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Determine which main nav item is active
   const activeMainPhase: string = phase.startsWith('fase3') ? 'fase3a' : phase
@@ -409,13 +410,15 @@ export default function Home() {
 
                 {tab === 'tabla' && (
                   <div className="flex flex-col lg:flex-row gap-6 items-start">
-                    <div className="w-full lg:w-60 shrink-0">
+                    <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
                       <FilterSidebar
                         filters={filters}
                         onChange={setFilters}
                         onReset={handleResetFilters}
                         visibleColumns={visibleColumns}
                         onToggleColumn={handleToggleColumn}
+                        collapsed={!sidebarOpen}
+                        onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
                       />
                     </div>
                     <div className="flex-1 min-w-0 w-full">
@@ -523,11 +526,13 @@ export default function Home() {
                 {tab === 'tabla' && (
                   <div>
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
-                      <div className="w-full lg:w-60 shrink-0">
+                      <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
                         <FilterSidebarFase2
                           filters={fase2Filters}
                           onChange={setFase2Filters}
                           onReset={handleResetFiltersFase2}
+                          collapsed={!sidebarOpen}
+                          onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
                         />
                       </div>
                       <div className="flex-1 min-w-0 w-full">
@@ -626,12 +631,14 @@ export default function Home() {
                 {tab === 'tabla' && (
                   <div>
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
-                      <div className="w-full lg:w-60 shrink-0">
+                      <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
                         {/* Fase 3a filter sidebar */}
                         <FilterSidebarFase3
                           filters={fase3Filters}
                           onChange={setFase3Filters}
                           onReset={handleResetFiltersFase3}
+                          collapsed={!sidebarOpen}
+                          onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
                         />
                       </div>
                       <div className="flex-1 min-w-0 w-full">

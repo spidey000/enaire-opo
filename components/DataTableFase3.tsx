@@ -47,6 +47,7 @@ function fmt(v: number | null): string {
 }
 
 export const COLUMNS_FASE3 = [
+  { key: 'ranking', label: 'Rank.', align: 'text-right' },
   { key: 'id', label: 'Identificador' },
   { key: 'nombre', label: 'Nombre y Apellidos' },
   { key: 'resultado3a', label: 'Resultado 3A' },
@@ -56,6 +57,7 @@ export const COLUMNS_FASE3 = [
 export function DataTableFase3({ data, filters, onSortChange }: Props) {
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
+  const [showAll, setShowAll] = useState(false)
 
   const filtered = useMemo(() => {
     const search = filters.search.toLowerCase().trim()
@@ -83,12 +85,12 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
-  const start = (safePage - 1) * PAGE_SIZE
-  const currentRows = filtered.slice(start, start + PAGE_SIZE)
+  const start = showAll ? 0 : (safePage - 1) * PAGE_SIZE
+  const currentRows = showAll ? filtered : filtered.slice(start, start + PAGE_SIZE)
 
   useEffect(() => {
-    setPage((current) => Math.min(current, totalPages))
-  }, [totalPages])
+    if (!showAll) setPage((current) => Math.min(current, totalPages))
+  }, [totalPages, showAll])
 
   const paginationItems = useMemo(() => {
     const items: Array<number | 'ellipsis'> = []
@@ -123,18 +125,29 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
           <span className="font-bold text-primary">{filtered.length.toLocaleString('es-ES')}</span>
           {' '}candidatos encontrados
         </span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          Mostrando {filtered.length === 0 ? 0 : start + 1}-{Math.min(start + PAGE_SIZE, filtered.length)} de {filtered.length.toLocaleString('es-ES')}
+        <span className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2"
+          >
+            {showAll ? '📄 25/página' : '📋 Ver todos'}
+          </button>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {showAll
+              ? `Mostrando todos (${filtered.length.toLocaleString('es-ES')})`
+              : `Mostrando ${filtered.length === 0 ? 0 : start + 1}-${Math.min(start + PAGE_SIZE, filtered.length)} de ${filtered.length.toLocaleString('es-ES')}`}
+          </span>
         </span>
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de resultados Fase 3a">
         <table className="w-full min-w-[600px] text-xs table-fixed border-separate border-spacing-0">
           <colgroup>
-            <col style={{ width: '15%' }} />
-            <col style={{ width: '35%' }} />
-            <col style={{ width: '25%' }} />
-            <col style={{ width: '25%' }} />
+            <col style={{ width: '8%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '33%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '23%' }} />
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
@@ -166,6 +179,9 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
                   key={`${c.id}-${i}`}
                   className={`${i % 2 === 0 ? 'bg-card' : 'bg-muted/20'} hover:bg-primary/5 transition-colors`}
                 >
+                  <td className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
+                    <span className="font-bold text-primary">{c.ranking}</span>
+                  </td>
                   <td className="px-3 py-2.5 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{c.id}</td>
                   <td className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
                   <td className="px-3 py-2.5"><ResultadoBadge resultado={c.resultado3a} /></td>
@@ -181,7 +197,7 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
         </table>
       </div>
 
-      {filtered.length > 0 && (
+      {filtered.length > 0 && !showAll && (
         <div className="px-4 py-3 border-t border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
             Página {safePage} de {totalPages}

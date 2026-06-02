@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, SlidersHorizontal, RotateCcw } from 'lucide-react'
+import { Search, SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import type { FiltersFase3 } from './DataTableFase3'
 
@@ -8,6 +8,8 @@ interface Props {
   filters: FiltersFase3
   onChange: (f: FiltersFase3) => void
   onReset: () => void
+  collapsed: boolean
+  onToggleCollapse: () => void
 }
 
 const RESULTADOS = [
@@ -21,8 +23,8 @@ const RESULTADOS = [
 ]
 
 const SORT_OPTIONS = [
-  { value: 'nombre', label: 'Nombre' },
   { value: 'puntuacion3a', label: 'Puntuación 3A' },
+  { value: 'nombre', label: 'Nombre' },
   { value: 'id', label: 'Identificador' },
   { value: 'resultado3a', label: 'Resultado 3A' },
 ]
@@ -32,11 +34,11 @@ export const DEFAULT_FILTERS_FASE3: FiltersFase3 = {
   resultado: [],
   scoreMin: 0,
   scoreMax: 50,
-  sortBy: 'nombre',
-  sortDir: 'asc',
+  sortBy: 'puntuacion3a',
+  sortDir: 'desc',
 }
 
-export function FilterSidebarFase3({ filters, onChange, onReset }: Props) {
+export function FilterSidebarFase3({ filters, onChange, onReset, collapsed, onToggleCollapse }: Props) {
   const update = (partial: Partial<FiltersFase3>) => onChange({ ...filters, ...partial })
 
   const toggleResultado = (e: string) => {
@@ -46,11 +48,29 @@ export function FilterSidebarFase3({ filters, onChange, onReset }: Props) {
     update({ resultado: next })
   }
 
+  if (collapsed) {
+    return (
+      <aside className="flex flex-col items-center gap-4 bg-card border border-border rounded-sm py-5 h-fit sticky top-[57px] shadow-sm w-12">
+        <button
+          onClick={onToggleCollapse}
+          className="flex items-center justify-center w-8 h-8 rounded-sm hover:bg-muted transition-colors"
+          title="Abrir filtros"
+        >
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+      </aside>
+    )
+  }
+
   return (
     <aside className="flex flex-col gap-5 bg-card border border-border rounded-sm p-5 h-fit sticky top-[57px] shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div className="flex items-center gap-2">
+          <button onClick={onToggleCollapse} className="hover:bg-muted rounded-sm p-0.5 -ml-1 transition-colors" title="Cerrar filtros">
+            <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
           <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-bold uppercase tracking-wider text-foreground">Filtros</span>
         </div>

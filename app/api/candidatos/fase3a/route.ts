@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
-import { parseFase3aCSV } from '@/lib/parseCSV'
+import { parseFase3aCSV, type CandidatoFase3 } from '@/lib/parseCSV'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
 const CSV_PATH = path.join(process.cwd(), 'public/data/resultados-fase3a.csv')
 
-let cachedData: ReturnType<typeof parseFase3aCSV> | null = null
+let cachedData: CandidatoFase3[] | null = null
 
 const cleanCsv = (text: string) => text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim()
 
 const decodeCsvBuffer = (buffer: Buffer) => {
   const utf8 = buffer.toString('utf-8')
-  // If UTF-8 decoding produced replacement chars (�), fallback to CP-1252.
   if (utf8.includes('\uFFFD')) {
     return new TextDecoder('windows-1252').decode(buffer)
   }

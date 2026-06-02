@@ -34,6 +34,7 @@ export interface CandidatoFase2 {
   nombre: string
   estado: ResultadoFase2
   puntuacion: number | null
+  ranking: number
 }
 
 export interface CandidatoFase3 {
@@ -41,6 +42,7 @@ export interface CandidatoFase3 {
   nombre: string
   resultado3a: ResultadoFase3 | null
   puntuacion3a: number | null
+  ranking: number
   resultado3b: null // always null until phase 3b is published
   puntuacion3b: null
   resultado3c: null // always null until phase 3c is published
@@ -141,6 +143,7 @@ export function parseFase3aCSV(raw: string): CandidatoFase3[] {
       nombre,
       resultado3a: resultado,
       puntuacion3a,
+      ranking: 0,
       resultado3b: null,
       puntuacion3b: null,
       resultado3c: null,
@@ -148,7 +151,10 @@ export function parseFase3aCSV(raw: string): CandidatoFase3[] {
     })
   }
 
+  // Compute ranking sorted by score descending (ties broken by name)
   return results
+    .sort((a, b) => (b.puntuacion3a ?? 0) - (a.puntuacion3a ?? 0) || a.nombre.localeCompare(b.nombre))
+    .map((c, i) => ({ ...c, ranking: i + 1 }))
 }
 
 export function parseFase2CSV(raw: string): CandidatoFase2[] {
@@ -174,10 +180,13 @@ export function parseFase2CSV(raw: string): CandidatoFase2[] {
     const puntuacionRaw = fields[3]?.trim() ?? ''
     const puntuacion = parseScore(puntuacionRaw)
 
-    results.push({ id, nombre, estado, puntuacion })
+    results.push({ id, nombre, estado, puntuacion, ranking: 0 })
   }
 
+  // Compute ranking sorted by score descending (ties broken by name)
   return results
+    .sort((a, b) => (b.puntuacion ?? 0) - (a.puntuacion ?? 0) || a.nombre.localeCompare(b.nombre))
+    .map((c, i) => ({ ...c, ranking: i + 1 }))
 }
 
 function mapResultadoFase2(raw: string): ResultadoFase2 {
