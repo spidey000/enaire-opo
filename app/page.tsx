@@ -619,18 +619,6 @@ export default function Home() {
               <>
                 <StatsCards cards={fase2CardDefs} />
 
-                {/* Verification badge */}
-                {verifyFase2?.status === 'verified' && (
-                  <div className="flex items-center gap-2 rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800">
-                    <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-medium">Datos verificados</span>
-                    <span className="text-emerald-600">{verifyFase2.integrity_check.matched}/{verifyFase2.integrity_check.total_rows} filas cotejadas contra el PDF original</span>
-                    <span className="ml-auto text-[10px] text-emerald-500 font-mono">SHA-256: {verifyFase2.csv_hash.slice(0, 12)}…</span>
-                  </div>
-                )}
-
                 <div className="border-b border-border">
                   <div className="flex items-stretch gap-0">
                     {[
