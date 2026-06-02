@@ -153,7 +153,7 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
           </span>
           {pinnedIds.length > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1">
-              <span>📍 {pinnedIds.length} fijado{pinnedIds.length > 1 ? 's' : ''}</span>
+              <span>★ {pinnedIds.length} fijado{pinnedIds.length > 1 ? 's' : ''}</span>
               <button onClick={clearPins} className="ml-1 hover:text-amber-900 font-bold" title="Limpiar fijados">✕</button>
             </span>
           )}
@@ -188,7 +188,7 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de resultados paginada">
-        <table className="w-full min-w-[920px] text-xs table-fixed border-separate border-spacing-0">
+        <table className="w-full min-w-[600px] lg:min-w-[920px] text-xs table-fixed border-separate border-spacing-0">
           <colgroup>
             {displayedCols.map((col, index) => (
               <col key={`col-${col.key}`} style={{ width: `${(colUnits[index] / totalUnits) * 100}%` }} />
@@ -229,7 +229,7 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
                 >
                   <td className="px-1 py-2.5 w-7 text-center">
                     <button onClick={() => togglePin(c.id)} className="text-xs hover:scale-110 transition-transform" title={isPinned ? 'Desfijar candidato' : 'Fijar candidato'}>
-                      {isPinned ? '📍' : '📌'}
+                      {isPinned ? '★' : '☆'}
                     </button>
                   </td>
                   {displayedCols.map((col) => {

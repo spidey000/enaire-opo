@@ -219,7 +219,7 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
           </span>
           {pinnedIds.length > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1">
-              <span>📍 {pinnedIds.length} fijado{pinnedIds.length > 1 ? 's' : ''}</span>
+              <span>★ {pinnedIds.length} fijado{pinnedIds.length > 1 ? 's' : ''}</span>
               <button onClick={clearPins} className="ml-1 hover:text-amber-900 font-bold" title="Limpiar fijados">✕</button>
             </span>
           )}
@@ -254,7 +254,7 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de ranking global">
-        <table className="w-full min-w-[800px] text-xs table-fixed border-separate border-spacing-0">
+        <table className="w-full min-w-[550px] lg:min-w-[800px] text-xs table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
               <th className="w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
@@ -290,7 +290,7 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
                 >
                   <td className="px-1 py-2.5 w-7 text-center">
                     <button onClick={() => togglePin(c.id)} className="text-xs hover:scale-110 transition-transform" title={isPinned ? 'Desfijar candidato' : 'Fijar candidato'}>
-                      {isPinned ? '📍' : '📌'}
+                      {isPinned ? '★' : '☆'}
                     </button>
                   </td>
                   {displayedCols.map((col) => renderCell(c, col.key))}
