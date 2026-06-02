@@ -1,6 +1,7 @@
 export interface Candidato {
   id: string
   nombre: string
+  uid: string // id|nombre — única dentro de cada fase
   conocimientosGenerales: number | null
   ingles: number | null
   aptitudes: number | null
@@ -32,6 +33,7 @@ export type ResultadoFase2 =
 export interface CandidatoFase2 {
   id: string
   nombre: string
+  uid: string
   estado: ResultadoFase2
   puntuacion: number | null
   ranking: number
@@ -40,6 +42,7 @@ export interface CandidatoFase2 {
 export interface CandidatoFase3 {
   id: string
   nombre: string
+  uid: string
   resultado3a: ResultadoFase3 | null
   puntuacion3a: number | null
   ranking: number
@@ -52,6 +55,7 @@ export interface CandidatoFase3 {
 export interface CandidatoGlobal {
   id: string
   nombre: string
+  uid: string
   totalFase1: number | null
   rankingFase1: number | null
   puntuacionFase2: number | null
@@ -108,9 +112,12 @@ export function parseCSV(raw: string): Candidato[] {
     const rankingIngles = parseRank(fields[10]?.trim() ?? '')
     const rankingAptitud = parseRank(fields[11]?.trim() ?? '')
 
+    const uid = id + '|' + nombre
+
     results.push({
       id,
       nombre,
+      uid,
       conocimientosGenerales,
       ingles,
       aptitudes,
@@ -153,9 +160,12 @@ export function parseFase3aCSV(raw: string): CandidatoFase3[] {
     const resultado: ResultadoFase3 | null = mapResultadoFase3(resultadoRaw)
     const puntuacion3a = parseScore(puntuacionRaw)
 
+    const uid = id + '|' + nombre
+
     results.push({
       id,
       nombre,
+      uid,
       resultado3a: resultado,
       puntuacion3a,
       ranking: 0,
@@ -194,8 +204,9 @@ export function parseFase2CSV(raw: string): CandidatoFase2[] {
     const estado = mapResultadoFase2(fields[2]?.trim() ?? '')
     const puntuacionRaw = fields[3]?.trim() ?? ''
     const puntuacion = parseScore(puntuacionRaw)
+    const uid = id + '|' + nombre
 
-    results.push({ id, nombre, estado, puntuacion, ranking: 0 })
+    results.push({ id, nombre, uid, estado, puntuacion, ranking: 0 })
   }
 
   // Compute ranking sorted by score descending (ties broken by name)
@@ -219,31 +230,33 @@ export function computeGlobalRanking(
   fase2: CandidatoFase2[],
   fase3a: CandidatoFase3[]
 ): CandidatoGlobal[] {
-  const fase2Map = new Map(fase2.map((c) => [c.id, c]))
-  const fase3aMap = new Map(fase3a.map((c) => [c.id, c]))
+  const f1Map = new Map(fase1.map((c) => [c.id, c]))
+  const f2Map = new Map(fase2.map((c) => [c.id, c]))
 
-  // Deduplicate Fase 1 by ID (some IDs appear multiple times in raw CSV)
-  const uniqueFase1 = new Map(fase1.map((c) => [c.id, c]))
+  // Cada fila APTO/A de F3A es un candidato del ranking global
+  const aptos3a = fase3a.filter((c) => c.resultado3a === 'APTO/A')
 
-  // Only include candidates present in ALL 3 phases (passed all previous phases)
-  const eligible = [...uniqueFase1.values()].filter((c) => fase2Map.has(c.id) && fase3aMap.has(c.id))
-
-  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a'>[] = eligible.map((c) => {
-    const f2 = fase2Map.get(c.id)!
-    const f3 = fase3aMap.get(c.id)!
-    const scores = [c.totalFase1, f2.puntuacion, f3.puntuacion3a]
+  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a'>[] = aptos3a.map((c) => {
+    const f1 = f1Map.get(c.id)
+    const f2 = f2Map.get(c.id)
+    const scores = [
+      f1?.totalFase1 ?? null,
+      f2?.puntuacion ?? null,
+      c.puntuacion3a,
+    ]
     const sum = scores.every((s) => s !== null)
       ? scores.reduce((a, b) => a! + b!, 0)
       : null
     return {
+      uid: c.uid,
       id: c.id,
       nombre: c.nombre,
-      totalFase1: c.totalFase1,
-      rankingFase1: c.ranking,
-      puntuacionFase2: f2.puntuacion,
-      rankingFase2: f2.ranking,
-      puntuacionFase3a: f3.puntuacion3a,
-      rankingFase3a: f3.ranking,
+      totalFase1: f1?.totalFase1 ?? null,
+      rankingFase1: f1?.ranking ?? null,
+      puntuacionFase2: f2?.puntuacion ?? null,
+      rankingFase2: f2?.ranking ?? null,
+      puntuacionFase3a: c.puntuacion3a,
+      rankingFase3a: c.ranking,
       puntuacionGlobal: sum,
     }
   })

@@ -13,9 +13,12 @@ export const MOCK_CANDIDATOS: Candidato[] = Array.from({ length: 100 }, (_, i) =
       ? 'NO APTO/A'
       : 'APTO/A'
 
+  const id = `TEST-${String(idx).padStart(4, '0')}`
+  const nombre = `Candidato Prueba ${idx}`
   return {
-    id: `TEST-${String(idx).padStart(4, '0')}`,
-    nombre: `Candidato Prueba ${idx}`,
+    id,
+    nombre,
+    uid: id + '|' + nombre,
     conocimientosGenerales: estado === 'NO PRESENTADO/A' ? null : conocimientos,
     ingles: estado === 'NO PRESENTADO/A' ? null : ingles,
     aptitudes: estado === 'NO PRESENTADO/A' ? null : aptitudes,
