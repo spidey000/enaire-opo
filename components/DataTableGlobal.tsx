@@ -49,6 +49,7 @@ const COLUMNS = [
   { key: 'evolF1aF2', label: 'Δ F1→F2', align: 'text-right' },
   { key: 'puntuacionFase3a', label: 'Punt. 3A', align: 'text-right' },
   { key: 'evolF2aF3a', label: 'Δ F2→3A', align: 'text-right' },
+  { key: 'evolF1aF3a', label: 'Δ F1→3A', align: 'text-right' },
   { key: 'puntuacionGlobal', label: 'Total Global', align: 'text-right' },
 ]
 
@@ -154,9 +155,8 @@ export function DataTableGlobal({ data }: Props) {
             <col style={{ width: '11%' }} />
             <col style={{ width: '11%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '11%' }} />
             <col style={{ width: '12%' }} />
-            <col style={{ width: '11%' }} />
+            <col style={{ width: '10%' }} />
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
@@ -212,6 +212,9 @@ export function DataTableGlobal({ data }: Props) {
                   </td>
                   <td className="px-3 py-2.5 text-right text-[11px]">
                     <DeltaBadge delta={c.evolF2aF3a} />
+                  </td>
+                  <td className="px-3 py-2.5 text-right text-[11px]">
+                    <DeltaBadge delta={c.evolF1aF3a} />
                   </td>
                   <td className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
                     {c.puntuacionGlobal !== null

@@ -66,6 +66,7 @@ export interface CandidatoGlobal {
   rankingGlobal: number
   evolF1aF2: number | null // positivo = mejoró (subió de ranking)
   evolF2aF3a: number | null
+  evolF1aF3a: number | null
 }
 
 function parseScore(val: string): number | null {
@@ -236,7 +237,7 @@ export function computeGlobalRanking(
   // Cada fila APTO/A de F3A es un candidato del ranking global
   const aptos3a = fase3a.filter((c) => c.resultado3a === 'APTO/A')
 
-  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a'>[] = aptos3a.map((c) => {
+  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a' | 'evolF1aF3a'>[] = aptos3a.map((c) => {
     const f1 = f1Map.get(c.id)
     const f2 = f2Map.get(c.id)
     const scores = [
@@ -274,6 +275,9 @@ export function computeGlobalRanking(
       : null,
     evolF2aF3a: c.rankingFase2 !== null && c.rankingFase3a !== null
       ? c.rankingFase2 - c.rankingFase3a
+      : null,
+    evolF1aF3a: c.rankingFase1 !== null && c.rankingFase3a !== null
+      ? c.rankingFase1 - c.rankingFase3a
       : null,
   }))
 }
