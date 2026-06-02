@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import type { FiltersFase2 } from './DataTableFase2'
 
@@ -79,22 +79,6 @@ export function FilterSidebarFase2({ filters, onChange, onReset, collapsed, onTo
           <RotateCcw className="h-3 w-3" />
           Reiniciar
         </button>
-      </div>
-
-      {/* Search */}
-      <div className="space-y-1.5">
-        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Buscar candidato
-        </label>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            placeholder="Nombre o identificador..."
-            value={filters.search}
-            onChange={(e) => update({ search: e.target.value })}
-            className="w-full h-8 pl-8 rounded-sm border border-border bg-background px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          />
-        </div>
       </div>
 
       {/* Estado */}

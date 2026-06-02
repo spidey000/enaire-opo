@@ -1,7 +1,6 @@
 'use client'
 
-import { Search, SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { SlidersHorizontal, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { GLOBAL_COLUMNS, type GlobalColumnVisibility } from './DataTableGlobal'
@@ -65,22 +64,6 @@ export function FilterSidebarGlobal({ filters, onChange, onReset, visibleColumns
           <RotateCcw className="h-3 w-3" />
           Reiniciar
         </button>
-      </div>
-
-      {/* Search */}
-      <div className="space-y-1.5">
-        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Buscar candidato
-        </Label>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Nombre o identificador..."
-            value={filters.search}
-            onChange={(e) => update({ search: e.target.value })}
-            className="pl-8 h-8 text-sm bg-background border-border rounded-sm focus-visible:ring-primary"
-          />
-        </div>
       </div>
 
       {/* Score range */}

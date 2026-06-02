@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { CandidatoGlobal } from '@/lib/parseCSV'
-import { ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus, Search, X } from 'lucide-react'
 
 // --- Column configuration (exported for FilterSidebarGlobal) ---
 
@@ -101,13 +101,14 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
   const [showAll, setShowAll] = useState(false)
+  const [localSearch, setLocalSearch] = useState('')
+  const [pinnedIds, setPinnedIds] = useState<string[]>([])
 
   const filtered = useMemo(() => {
-    const search = filters.search.toLowerCase().trim()
+    const search = localSearch.toLowerCase().trim()
     return data.filter((c) => {
-      if (search && !c.nombre.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) {
-        return false
-      }
+      if (pinnedIds.includes(c.id)) return true
+      if (search && !c.nombre.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) return false
       if (c.puntuacionGlobal !== null) {
         if (c.puntuacionGlobal < filters.scoreMin || c.puntuacionGlobal > filters.scoreMax) return false
       } else if (filters.scoreMin > 0 || filters.scoreMax < 300) {
@@ -115,7 +116,7 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
       }
       return true
     })
-  }, [data, filters])
+  }, [data, filters, pinnedIds, localSearch])
 
   const sortedData = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -139,10 +140,18 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
     setPageInput('1')
   }, [filtered])
 
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE))
+  const pinnedRows = sortedData.filter(c => pinnedIds.includes(c.id))
+  const unpinnedRows = sortedData.filter(c => !pinnedIds.includes(c.id))
+  const totalPages = Math.max(1, Math.ceil(unpinnedRows.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
-  const start = showAll ? 0 : (safePage - 1) * PAGE_SIZE
-  const currentRows = showAll ? sortedData : sortedData.slice(start, start + PAGE_SIZE)
+  const unpinnedStart = showAll ? 0 : (safePage - 1) * PAGE_SIZE
+  const unpinnedPageRows = showAll ? unpinnedRows : unpinnedRows.slice(unpinnedStart, unpinnedStart + PAGE_SIZE)
+  const currentRows = [...pinnedRows, ...unpinnedPageRows]
+
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+  const clearPins = () => setPinnedIds([])
 
   useEffect(() => {
     if (!showAll) setPage((current) => Math.min(current, totalPages))
@@ -202,30 +211,53 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
 
   return (
     <div className="bg-card border border-border rounded-sm shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-border bg-muted/40 flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">
-          <span className="font-bold text-primary">{sortedData.length.toLocaleString('es-ES')}</span>
-          {' '}candidatos en ranking global
-        </span>
-        <span className="flex items-center gap-3">
+      <div className="px-4 py-3 border-b border-border bg-muted/40 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm font-medium text-foreground">
+            <span className="font-bold text-primary">{filtered.length.toLocaleString('es-ES')}</span>
+            {' '}candidatos
+          </span>
+          {pinnedIds.length > 0 && (
+            <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1">
+              <span>📍 {pinnedIds.length} fijado{pinnedIds.length > 1 ? 's' : ''}</span>
+              <button onClick={clearPins} className="ml-1 hover:text-amber-900 font-bold" title="Limpiar fijados">✕</button>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <input
+              placeholder="Buscar..."
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="pl-7 pr-6 h-7 w-40 text-xs rounded-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            {localSearch && (
+              <button onClick={() => setLocalSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setShowAll(!showAll)}
-            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2"
+            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
           >
             {showAll ? '📄 25/página' : '📋 Ver todos'}
           </button>
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
             {showAll
-              ? `Mostrando todos (${sortedData.length.toLocaleString('es-ES')})`
-              : `Mostrando ${sortedData.length === 0 ? 0 : start + 1}-${Math.min(start + PAGE_SIZE, sortedData.length)} de ${sortedData.length.toLocaleString('es-ES')}`}
+              ? `Mostrando todos (${filtered.length.toLocaleString('es-ES')})`
+              : `Mostrando ${unpinnedRows.length === 0 ? 0 : unpinnedStart + 1}-${Math.min(unpinnedStart + PAGE_SIZE, unpinnedRows.length)} de ${unpinnedRows.length.toLocaleString('es-ES')}`}
           </span>
-        </span>
+        </div>
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de ranking global">
         <table className="w-full min-w-[800px] text-xs table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
+              <th className="w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
               {displayedCols.map((col) => (
                 <th
                   key={col.key}
@@ -244,25 +276,32 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
           <tbody className="divide-y divide-border/60">
             {currentRows.length === 0 ? (
               <tr>
-                <td colSpan={Math.max(1, displayedCols.length)} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                <td colSpan={Math.max(1, displayedCols.length + 1)} className="px-4 py-16 text-center text-sm text-muted-foreground">
                   No se encontraron candidatos en el ranking global.
                 </td>
               </tr>
             ) : (
-              currentRows.map((c, i) => (
+              currentRows.map((c, i) => {
+                const isPinned = pinnedIds.includes(c.id)
+                return (
                 <tr
                   key={`global-${c.id}`}
-                  className={`${i % 2 === 0 ? 'bg-card' : 'bg-muted/20'} hover:bg-primary/5 transition-colors`}
+                  className={`${isPinned ? 'bg-amber-50/80' : i % 2 === 0 ? 'bg-card' : 'bg-muted/20'} hover:bg-primary/5 transition-colors`}
                 >
+                  <td className="px-1 py-2.5 w-7 text-center">
+                    <button onClick={() => togglePin(c.id)} className="text-xs hover:scale-110 transition-transform" title={isPinned ? 'Desfijar candidato' : 'Fijar candidato'}>
+                      {isPinned ? '📍' : '📌'}
+                    </button>
+                  </td>
                   {displayedCols.map((col) => renderCell(c, col.key))}
                 </tr>
-              ))
+              )})
             )}
           </tbody>
         </table>
       </div>
 
-      {sortedData.length > 0 && !showAll && (
+      {unpinnedRows.length > 0 && !showAll && (
         <div className="px-4 py-3 border-t border-border bg-muted/20 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-muted-foreground">
             Página {safePage} de {totalPages}
