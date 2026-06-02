@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import useSWR from 'swr'
-import { Candidato, CandidatoFase2, CandidatoFase3 } from '@/lib/parseCSV'
+import { Candidato, CandidatoFase2, CandidatoFase3, CandidatoGlobal, computeGlobalRanking } from '@/lib/parseCSV'
 import { StatsCards, type StatCardDef } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { ChartsPanelFase2 } from '@/components/ChartsPanelFase2'
@@ -13,8 +13,19 @@ import { FilterSidebarFase3, DEFAULT_FILTERS_FASE3 } from '@/components/FilterSi
 import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { DataTableFase2, FiltersFase2 } from '@/components/DataTableFase2'
 import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
+import { DataTableGlobal } from '@/components/DataTableGlobal'
 import { FasePendiente } from '@/components/FasePendiente'
-import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle } from 'lucide-react'
+import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe } from 'lucide-react'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from 'recharts'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -25,7 +36,7 @@ const fetcher = (url: string) =>
 type Tab = 'tabla' | 'graficas'
 
 // Main phases in the top navigation
-type Phase = 'fase1' | 'fase2' | 'fase3a' | 'fase3b' | 'fase3c'
+type Phase = 'global' | 'fase1' | 'fase2' | 'fase3a' | 'fase3b' | 'fase3c'
 
 const PHASE_NOTES: Record<string, { title: string; bullets: string[] }> = {
   fase2: {
@@ -67,10 +78,11 @@ const PHASE_NOTES: Record<string, { title: string; bullets: string[] }> = {
 }
 
 // Group phases for main navigation
-const MAIN_PHASES = ['fase1', 'fase2', 'fase3a'] as const
+const MAIN_PHASES = ['global', 'fase1', 'fase2', 'fase3a'] as const
 const FASE3_SUB_TABS = ['fase3a', 'fase3b', 'fase3c'] as const
 
 const MAIN_PHASE_LABELS: Record<string, string> = {
+  global: 'GLOBAL',
   fase1: 'FASE 1',
   fase2: 'FASE 2',
   fase3a: 'FASE 3',
@@ -87,7 +99,7 @@ export default function Home() {
   const [fase3Filters, setFase3Filters] = useState<FiltersFase3>(DEFAULT_FILTERS_FASE3)
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
-  const [phase, setPhase] = useState<Phase>('fase1')
+  const [phase, setPhase] = useState<Phase>('global')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Determine which main nav item is active
@@ -99,7 +111,12 @@ export default function Home() {
   const displayDataFase2 = Array.isArray(fase2Data) ? fase2Data : []
   const displayDataFase3a = Array.isArray(fase3aData) ? fase3aData : []
 
-  const isPhaseWithData = phase === 'fase1' || phase === 'fase2' || phase === 'fase3a'
+  const globalData = useMemo<CandidatoGlobal[]>(() => {
+    if (!displayDataFase1.length || !displayDataFase2.length || !displayDataFase3a.length) return []
+    return computeGlobalRanking(displayDataFase1, displayDataFase2, displayDataFase3a)
+  }, [displayDataFase1, displayDataFase2, displayDataFase3a])
+
+  const isPhaseWithData = phase === 'global' || phase === 'fase1' || phase === 'fase2' || phase === 'fase3a'
 
   // --- Fase 1 sorting ---
   const sortedPhaseData = useMemo(() => {
@@ -262,7 +279,25 @@ export default function Home() {
     ]
   }, [displayDataFase3a])
 
-  const recordCount = phase === 'fase1' ? displayDataFase1.length : phase === 'fase2' ? displayDataFase2.length : displayDataFase3a.length
+  // --- Global stats cards ---
+  const globalCardDefs: StatCardDef[] = useMemo(() => {
+    if (!globalData.length) return []
+    const total = globalData.length
+    const conPuntuacion = globalData.filter((c) => c.puntuacionGlobal !== null)
+    const media = conPuntuacion.length > 0
+      ? conPuntuacion.reduce((a, c) => a + (c.puntuacionGlobal ?? 0), 0) / conPuntuacion.length
+      : 0
+    const maxScore = conPuntuacion.length > 0
+      ? Math.max(...conPuntuacion.map((c) => c.puntuacionGlobal!))
+      : 0
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'MEDIA GLOBAL', value: media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'MÁXIMA', value: maxScore.toFixed(2), label: 'puntuación máxima', icon: Globe, iconColor: 'text-amber-600', valueColor: 'text-amber-700' },
+    ]
+  }, [globalData])
+
+  const recordCount = phase === 'global' ? globalData.length : phase === 'fase1' ? displayDataFase1.length : phase === 'fase2' ? displayDataFase2.length : displayDataFase3a.length
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
@@ -302,7 +337,9 @@ export default function Home() {
       </header>
 
       <main className="max-w-screen-xl mx-auto px-6 py-10 space-y-10">
-        {(fase1Loading || fase2Loading || (isFase3 && fase3aLoading)) && (
+        {(phase === 'global'
+          ? (fase1Loading || fase2Loading || fase3aLoading)
+          : (fase1Loading || fase2Loading || (isFase3 && fase3aLoading))) && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Cargando datos...</p>
@@ -346,12 +383,19 @@ export default function Home() {
           </div>
         )}
 
-        {!fase1Loading && !(phase === 'fase2' && fase2Loading) && !(isFase3 && fase3aLoading) && (
+        {!(phase === 'global' ? (fase1Loading || fase2Loading || fase3aLoading) : false) &&
+          !(phase === 'fase1' && fase1Loading) &&
+          !(phase === 'fase2' && fase2Loading) &&
+          !(isFase3 && fase3aLoading) && (
           <>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">RESULTADOS</p>
               <h1 className="text-3xl font-bold text-foreground text-balance leading-tight">
-                {phase === 'fase2' ? 'Listado Definitivo Fase 2' : `Listado Provisional ${phase === 'fase1' ? 'Fase 1' : isFase3 ? `Fase 3${phase.replace('fase3', ' - ')}` : ''}`}
+                {phase === 'global'
+                  ? 'Ranking Global'
+                  : phase === 'fase2'
+                    ? 'Listado Definitivo Fase 2'
+                    : `Listado Provisional ${phase === 'fase1' ? 'Fase 1' : isFase3 ? `Fase 3${phase.replace('fase3', ' - ')}` : ''}`}
               </h1>
               <div className="mt-2 h-0.5 w-10 bg-primary" />
             </div>
@@ -380,6 +424,50 @@ export default function Home() {
                   </ul>
                 </section>
               </div>
+            )}
+
+            {/* Global view */}
+            {phase === 'global' && (
+              <>
+                <StatsCards cards={globalCardDefs} />
+
+                <div className="border-b border-border">
+                  <div className="flex items-stretch gap-0">
+                    {[
+                      { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
+                      { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
+                    ].map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => setTab(id)}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
+                          tab === id
+                            ? 'border-primary text-primary bg-primary/5'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tab === 'tabla' && (
+                  <DataTableGlobal data={globalData} />
+                )}
+
+                {tab === 'graficas' && (
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">ANÁLISIS GLOBAL</p>
+                      <h2 className="text-xl font-bold text-foreground">Estadísticas del ranking global</h2>
+                      <div className="mt-2 h-0.5 w-8 bg-primary" />
+                    </div>
+                    <GlobalChartsSection data={globalData} />
+                  </div>
+                )}
+              </>
             )}
 
             {/* Fase 1 stats and content */}
@@ -734,6 +822,63 @@ export default function Home() {
           </div>
         </div>
       </footer>
+    </div>
+  )
+}
+
+/** Global charts: distribution table + ungrouped bar chart */
+function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
+  const scores = useMemo(
+    () => data.filter((c) => c.puntuacionGlobal !== null).map((c) => c.puntuacionGlobal!),
+    [data]
+  )
+  const { buckets, total } = useMemo(() => buildScoreBuckets(scores, 10), [scores])
+  const ungrouped = useMemo(() => buildUngroupedHistogram(scores), [scores])
+
+  const PRIMARY = '#009FE3'
+  const TICK = { fontSize: 11, fill: '#6b7280' }
+  const GRID_COLOR = '#e5e7eb'
+  const TOOLTIP_STYLE = {
+    contentStyle: {
+      backgroundColor: '#ffffff',
+      border: '1px solid #e5e7eb',
+      borderRadius: '4px',
+      color: '#1a1a2e',
+      fontSize: '12px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+    },
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
+          <div className="mb-1">
+            <h3 className="text-sm font-bold text-foreground">Distribución de Puntuación Global (sin agrupar)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Cada punto entero de puntuación global</p>
+          </div>
+          <div className="mt-4">
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={ungrouped} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+                <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
+                <YAxis tick={TICK} tickLine={false} axisLine={false} />
+                <Tooltip
+                  {...TOOLTIP_STYLE}
+                  formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
+                  labelFormatter={(l) => `Puntuación ${l}`}
+                />
+                <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+      <ScoreDistributionTable
+        title="Distribución por tramos — Puntuación Global"
+        buckets={buckets}
+        total={total}
+      />
     </div>
   )
 }

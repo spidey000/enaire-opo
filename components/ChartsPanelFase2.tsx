@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { CandidatoFase2 } from '@/lib/parseCSV'
+import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
 import {
   BarChart,
   Bar,
@@ -63,19 +64,19 @@ export function ChartsPanelFase2({ data }: Props) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
   }, [data])
 
-  const histograma = useMemo(() => {
-    const buckets: Record<string, number> = {}
-    const step = 5
-    for (const c of data) {
-      if (c.puntuacion === null) continue
-      const bucket = Math.floor(c.puntuacion / step) * step
-      const label = `${bucket}`
-      buckets[label] = (buckets[label] ?? 0) + 1
-    }
-    return Object.entries(buckets)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([name, count]) => ({ name, count }))
+  const scores = useMemo(() => {
+    return data.filter((c) => c.puntuacion !== null).map((c) => c.puntuacion! as number)
   }, [data])
+
+  const { buckets, total: bucketTotal } = useMemo(
+    () => buildScoreBuckets(scores, 5, 0),
+    [scores]
+  )
+
+  const ungroupedData = useMemo(
+    () => buildUngroupedHistogram(scores, 0),
+    [scores]
+  )
 
   const commonStats = useMemo(() => {
     const total = data.length
@@ -128,35 +129,43 @@ export function ChartsPanelFase2({ data }: Props) {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Distribución de Puntuación" sub="Candidatos aptos con puntuación registrada">
+        <ChartCard title="Distribución de Puntuación (sin agrupar)" sub="Candidatos aptos con puntuación registrada — cada punto entero">
           <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={histograma} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+            <BarChart data={ungroupedData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="name" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
+              <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
               <YAxis tick={TICK} tickLine={false} axisLine={false} />
               <Tooltip
                 {...TOOLTIP_STYLE}
                 formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
-                labelFormatter={(l) => `Puntuación ~${l}`}
+                labelFormatter={(l) => `Puntuación ${l}`}
               />
-              <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
+              <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
-        <table className="w-full min-w-[420px] text-xs">
-          <tbody className="divide-y divide-border/60">
-            {commonStats.map((row) => (
-              <tr key={row.label}>
-                <td className="py-2 pr-3 text-muted-foreground">{row.label}</td>
-                <td className="py-2 text-right font-mono font-semibold text-foreground">{row.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <ScoreDistributionTable
+          title="Distribución por tramos — Puntuación Fase 2"
+          buckets={buckets}
+          total={bucketTotal}
+        />
+
+        <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
+          <table className="w-full min-w-[420px] text-xs">
+            <tbody className="divide-y divide-border/60">
+              {commonStats.map((row) => (
+                <tr key={row.label}>
+                  <td className="py-2 pr-3 text-muted-foreground">{row.label}</td>
+                  <td className="py-2 text-right font-mono font-semibold text-foreground">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

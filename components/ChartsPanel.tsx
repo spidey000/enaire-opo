@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Candidato } from '@/lib/parseCSV'
+import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
 import {
   BarChart,
   Bar,
@@ -66,19 +67,21 @@ export function ChartsPanel({ data }: Props) {
     return Object.entries(counts).map(([name, value]) => ({ name, value }))
   }, [data])
 
-  const distributionData = useMemo(() => {
-    const buckets: Record<string, number> = {}
-    const step = 5
-    for (const c of data) {
-      if (c.totalFase1 === null) continue
-      const bucket = Math.floor(c.totalFase1 / step) * step
-      const label = `${bucket}`
-      buckets[label] = (buckets[label] ?? 0) + 1
-    }
-    return Object.entries(buckets)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([name, count]) => ({ name, count }))
+  const scores = useMemo(() => {
+    return data
+      .filter((c) => c.totalFase1 !== null)
+      .map((c) => c.totalFase1! as number)
   }, [data])
+
+  const { buckets, total: bucketTotal } = useMemo(
+    () => buildScoreBuckets(scores, 5, 0),
+    [scores]
+  )
+
+  const ungroupedData = useMemo(
+    () => buildUngroupedHistogram(scores, 0),
+    [scores]
+  )
 
   const scoresByCategory = useMemo(() => {
     const aptosData = data.filter((c) => c.estado === 'APTO/A')
@@ -152,18 +155,6 @@ export function ChartsPanel({ data }: Props) {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Distribución de Puntuación Total" sub="Candidatos con puntuación registrada">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={distributionData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="name" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Puntuación ~${l}`} />
-              <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
         <ChartCard title="Media de Puntuaciones — APTO/A" sub="Puntuación media por prueba entre candidatos aptos">
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={scoresByCategory} margin={{ top: 4, right: 4, left: -16, bottom: 0 }} layout="vertical">
@@ -176,6 +167,22 @@ export function ChartsPanel({ data }: Props) {
                   <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
                 ))}
               </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Distribución de Puntuación Total (sin agrupar)" sub="Candidatos con puntuación registrada — cada punto entero">
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={ungroupedData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
+              <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
+              <YAxis tick={TICK} tickLine={false} axisLine={false} />
+              <Tooltip
+                {...TOOLTIP_STYLE}
+                formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
+                labelFormatter={(l) => `Puntuación ${l}`}
+              />
+              <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -203,18 +210,26 @@ export function ChartsPanel({ data }: Props) {
         </ChartCard>
       </div>
 
-      <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
-        <table className="w-full min-w-[420px] text-xs">
-          <tbody className="divide-y divide-border/60">
-            {commonStats.map((row) => (
-              <tr key={row.label}>
-                <td className="py-2 pr-3 text-muted-foreground">{row.label}</td>
-                <td className="py-2 text-right font-mono font-semibold text-foreground">{row.value}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <ScoreDistributionTable
+          title="Distribución por tramos — Puntuación Total Fase 1"
+          buckets={buckets}
+          total={bucketTotal}
+        />
+
+        <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
+          <table className="w-full min-w-[420px] text-xs">
+            <tbody className="divide-y divide-border/60">
+              {commonStats.map((row) => (
+                <tr key={row.label}>
+                  <td className="py-2 pr-3 text-muted-foreground">{row.label}</td>
+                  <td className="py-2 text-right font-mono font-semibold text-foreground">{row.value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

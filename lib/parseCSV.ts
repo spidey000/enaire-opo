@@ -49,6 +49,21 @@ export interface CandidatoFase3 {
   puntuacion3c: null
 }
 
+export interface CandidatoGlobal {
+  id: string
+  nombre: string
+  totalFase1: number | null
+  rankingFase1: number | null
+  puntuacionFase2: number | null
+  rankingFase2: number | null
+  puntuacionFase3a: number | null
+  rankingFase3a: number | null
+  puntuacionGlobal: number | null
+  rankingGlobal: number
+  evolF1aF2: number | null // positivo = mejoró (subió de ranking)
+  evolF2aF3a: number | null
+}
+
 function parseScore(val: string): number | null {
   if (!val || val.trim() === '' || val.trim() === '---' || val.trim() === 'NO APTO/A' || val.trim() === 'APTO/A') return null
   const n = parseFloat(val.replace(',', '.'))
@@ -197,6 +212,54 @@ function mapResultadoFase2(raw: string): ResultadoFase2 {
   if (trimmed.includes('EXCLUIDO')) return 'EXCLUIDO/A (1)'
   if (trimmed === 'RENUNCIA') return 'RENUNCIA'
   return 'NO APTO/A' // fallback
+}
+
+export function computeGlobalRanking(
+  fase1: Candidato[],
+  fase2: CandidatoFase2[],
+  fase3a: CandidatoFase3[]
+): CandidatoGlobal[] {
+  const fase2Map = new Map(fase2.map((c) => [c.id, c]))
+  const fase3aMap = new Map(fase3a.map((c) => [c.id, c]))
+
+  // Only include candidates present in ALL 3 phases (passed all previous phases)
+  const eligible = fase1.filter((c) => fase2Map.has(c.id) && fase3aMap.has(c.id))
+
+  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a'>[] = eligible.map((c) => {
+    const f2 = fase2Map.get(c.id)!
+    const f3 = fase3aMap.get(c.id)!
+    const scores = [c.totalFase1, f2.puntuacion, f3.puntuacion3a]
+    const sum = scores.every((s) => s !== null)
+      ? scores.reduce((a, b) => a! + b!, 0)
+      : null
+    return {
+      id: c.id,
+      nombre: c.nombre,
+      totalFase1: c.totalFase1,
+      rankingFase1: c.ranking,
+      puntuacionFase2: f2.puntuacion,
+      rankingFase2: f2.ranking,
+      puntuacionFase3a: f3.puntuacion3a,
+      rankingFase3a: f3.ranking,
+      puntuacionGlobal: sum,
+    }
+  })
+
+  // Sort by global score desc, ties broken by name
+  const sorted = raw.sort(
+    (a, b) => (b.puntuacionGlobal ?? 0) - (a.puntuacionGlobal ?? 0) || a.nombre.localeCompare(b.nombre)
+  )
+
+  return sorted.map((c, i) => ({
+    ...c,
+    rankingGlobal: i + 1,
+    evolF1aF2: c.rankingFase1 !== null && c.rankingFase2 !== null
+      ? c.rankingFase1 - c.rankingFase2
+      : null,
+    evolF2aF3a: c.rankingFase2 !== null && c.rankingFase3a !== null
+      ? c.rankingFase2 - c.rankingFase3a
+      : null,
+  }))
 }
 
 function mapResultadoFase3(raw: string): ResultadoFase3 | null {
