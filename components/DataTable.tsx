@@ -158,28 +158,28 @@ export function DataTable({ data, filters, onSortChange, visibleColumns }: Props
             </span>
           )}
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <input
-              placeholder="Buscar..."
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="pl-7 pr-6 h-7 w-40 text-xs rounded-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
-            />
-            {localSearch && (
-              <button onClick={() => setLocalSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
-          >
-            {showAll ? '📄 25/página' : '📋 Ver todos'}
-          </button>
-          <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                placeholder="Buscar..."
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="pl-7 pr-6 h-7 w-28 sm:w-40 text-xs rounded-sm border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/50"
+              />
+              {localSearch && (
+                <button onClick={() => setLocalSearch('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="text-[11px] font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-2 whitespace-nowrap"
+            >
+              {showAll ? '📄 25/página' : '📋 Ver todos'}
+            </button>
+            <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap hidden sm:inline">
             {showAll
               ? `Mostrando todos (${filtered.length.toLocaleString('es-ES')})`
               : `Mostrando ${unpinnedRows.length === 0 ? 0 : unpinnedStart + 1}-${Math.min(unpinnedStart + PAGE_SIZE, unpinnedRows.length)} de ${unpinnedRows.length.toLocaleString('es-ES')}`}

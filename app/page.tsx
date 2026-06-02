@@ -329,18 +329,18 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
       <header className="bg-primary sticky top-0 z-30 shadow-sm">
-        <div className="max-w-screen-xl mx-auto px-6 py-0 flex items-stretch gap-8">
-          <div className="flex items-center gap-2.5 py-3 pr-8 border-r border-white/20">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-6 py-0 flex items-stretch gap-4 md:gap-8">
+          <div className="flex items-center gap-2.5 py-3 pr-4 md:pr-8 border-r border-white/20 shrink-0">
             <FileSpreadsheet className="h-5 w-5 text-white shrink-0" />
-            <span className="text-white font-bold text-sm tracking-wide uppercase leading-none">ENAIRE</span>
+            <span className="text-white font-bold text-xs md:text-sm tracking-wide uppercase leading-none">ENAIRE</span>
           </div>
 
-          <nav className="hidden md:flex items-stretch gap-0">
+          <nav className="flex items-stretch gap-0 overflow-x-auto flex-1 scrollbar-none">
             {MAIN_PHASES.map((phaseId) => (
               <button
                 key={phaseId}
                 onClick={() => setPhase(phaseId)}
-                className={`flex items-center px-4 py-3 text-sm cursor-pointer transition-colors border-b-2 ${
+                className={`flex items-center px-2.5 md:px-4 py-3 text-xs md:text-sm cursor-pointer transition-colors border-b-2 whitespace-nowrap ${
                   activeMainPhase === phaseId
                     ? 'text-white bg-white/10 border-white/90'
                     : 'text-white/90 hover:text-white hover:bg-white/10 border-transparent'
@@ -351,7 +351,7 @@ export default function Home() {
             ))}
             <a
               href="#informacion"
-              className="flex items-center px-4 py-3 text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent"
+              className="hidden sm:flex items-center px-4 py-3 text-xs md:text-sm text-white/90 hover:text-white hover:bg-white/10 cursor-pointer transition-colors border-b-2 border-transparent whitespace-nowrap"
             >
               Información
             </a>
@@ -363,7 +363,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-screen-xl mx-auto px-6 py-10 space-y-10">
+      <main className="max-w-screen-xl mx-auto px-4 md:px-6 py-10 space-y-10">
         {(phase === 'global'
           ? (fase1Loading || fase2Loading || fase3aLoading)
           : (fase1Loading || fase2Loading || (isFase3 && fase3aLoading))) && (
@@ -393,7 +393,7 @@ export default function Home() {
 
         {/* Fase 3 sub-tabs */}
         {isFase3 && !fase3aLoading && (
-          <div className="flex items-center gap-1 border-b border-border pb-0">
+          <div className="flex items-center gap-1 border-b border-border pb-0 overflow-x-auto scrollbar-none">
             {FASE3_SUB_TABS.map((sub) => (
               <button
                 key={sub}
