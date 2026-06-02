@@ -11,50 +11,72 @@ let cachedVerification: Record<string, unknown> | null = null
 export async function GET() {
   try {
     if (!cachedVerification) {
-      // Load stored verification data
       const raw = await fs.readFile(VERIFICATION_PATH, 'utf-8')
       cachedVerification = JSON.parse(raw)
     }
 
-    // Recompute CSV hash for live integrity check
     const csvBuffer = await fs.readFile(CSV_PATH)
     const liveHash = createHash('sha256').update(csvBuffer).digest('hex')
 
-    // Verify first 5 and last 5 rows as spot check
     const csvText = csvBuffer.toString('utf-8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim()
-    const lines = csvText.split('\n').filter(l => l.trim() && !l.startsWith('IDENTIFICADOR'))
-    const spotChecks: { line: number, id: string, passed: boolean }[] = []
-    
-    const checksums = (cachedVerification as { row_checksums: { line: number, sha256: string }[] }).row_checksums
-    const checkLines = [0, 1, 2, lines.length - 3, lines.length - 2, lines.length - 1].filter(i => i >= 0 && i < lines.length)
-    
-    for (const idx of checkLines) {
-      const line = lines[idx]
+    const allLines = csvText.split('\n').filter(l => l.trim())
+
+    // Parse all CSV rows and skip header
+    const parsedRows: { id: string, nombre: string, estado: string, puntuacion: string }[] = []
+    for (const line of allLines) {
       const fields = parseCSVLine(line)
-      const rowStr = `${fields[0]}|${fields[1]}|${fields[2]}|${fields[3]}`
-      const hash = createHash('sha256').update(rowStr).digest('hex')
-      const storedHash = checksums[idx]?.sha256 ?? ''
-      spotChecks.push({
-        line: idx + 1,
-        id: fields[0] ?? '',
-        passed: hash === storedHash,
+      const id = fields[0]?.trim() ?? ''
+      if (!id || id.toUpperCase() === 'IDENTIFICADOR') continue
+      parsedRows.push({
+        id,
+        nombre: fields[1]?.trim() ?? '',
+        estado: fields[2]?.trim() ?? '',
+        puntuacion: fields[3]?.trim() ?? '',
       })
     }
 
-    const allPassed = spotChecks.every(c => c.passed)
+    const checksums = (cachedVerification as { row_checksums: { line: number, sha256: string }[] }).row_checksums
+
+    // Compare every row line by line
+    let matched = 0
+    let failed = 0
+    const sampleFailures: { line: number, id: string }[] = []
+
+    const maxRows = Math.min(parsedRows.length, checksums.length)
+    for (let i = 0; i < maxRows; i++) {
+      const r = parsedRows[i]
+      const rowStr = `${r.id}|${r.nombre}|${r.estado}|${r.puntuacion}`
+      const hash = createHash('sha256').update(rowStr).digest('hex')
+      if (hash === checksums[i].sha256) {
+        matched++
+      } else {
+        failed++
+        if (sampleFailures.length < 5) {
+          sampleFailures.push({ line: i + 1, id: r.id })
+        }
+      }
+    }
+
+    const allVerified = matched === maxRows && maxRows === checksums.length
 
     return NextResponse.json({
-      status: allPassed ? 'verified' : 'mismatch',
+      status: allVerified ? 'verified' : 'mismatch',
       phase: 'fase2',
       csv_hash: liveHash,
-      stored_root_hash: (cachedVerification as { root_hash: string }).root_hash,
       total_candidates: (cachedVerification as { total_candidates: number }).total_candidates,
       extraction_date: (cachedVerification as { extraction_date: string }).extraction_date,
-      cross_reference: (cachedVerification as { cross_reference: Record<string, unknown> }).cross_reference,
       pdf_source: (cachedVerification as { pdf_source: string }).pdf_source,
       resolucion: (cachedVerification as { resolucion: string }).resolucion,
-      spot_checks: spotChecks,
-      integrity: allPassed ? '✅ Los datos coinciden con el PDF original' : '⚠️ Discrepancias detectadas',
+      cross_reference: (cachedVerification as { cross_reference: Record<string, unknown> }).cross_reference,
+      integrity_check: {
+        total_rows: checksums.length,
+        matched,
+        failed,
+        sample_failures: sampleFailures,
+      },
+      integrity: allVerified
+        ? '✅ 1084/1084 filas verificadas contra el PDF original'
+        : `⚠️ ${matched}/${checksums.length} filas verificadas. ${failed} discrepancias.`,
     })
   } catch (err) {
     console.error('[api/verify/fase2] Error:', err)

@@ -63,14 +63,13 @@ export function parseCSV(raw: string): Candidato[] {
   const lines = raw.split('\n')
   const results: Candidato[] = []
 
-  const HEADER_PATTERN = /^IDENTIFICADOR/i
+  const HEADER_PATTERN = /^"?IDENTIFICADOR/i
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
     if (HEADER_PATTERN.test(trimmed)) continue
 
-    // Parse CSV line respecting quoted fields
     const fields = parseCSVLine(trimmed)
     if (fields.length < 8) continue
 
@@ -115,7 +114,7 @@ export function parseFase3aCSV(raw: string): CandidatoFase3[] {
   const lines = raw.split('\n')
   const results: CandidatoFase3[] = []
 
-  const HEADER_PATTERN = /^IDENTIFICADOR/i
+  const HEADER_PATTERN = /^"?IDENTIFICADOR/i
 
   for (const line of lines) {
     const trimmed = line.trim()
@@ -156,7 +155,7 @@ export function parseFase2CSV(raw: string): CandidatoFase2[] {
   const lines = raw.split('\n')
   const results: CandidatoFase2[] = []
 
-  const HEADER_PATTERN = /^IDENTIFICADOR/i
+  const HEADER_PATTERN = /^"?IDENTIFICADOR/i
 
   for (const line of lines) {
     const trimmed = line.trim()

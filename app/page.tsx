@@ -3,14 +3,18 @@
 import { useState, useMemo } from 'react'
 import useSWR from 'swr'
 import { Candidato, CandidatoFase2, CandidatoFase3 } from '@/lib/parseCSV'
-import { StatsCards } from '@/components/StatsCards'
+import { StatsCards, type StatCardDef } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
+import { ChartsPanelFase2 } from '@/components/ChartsPanelFase2'
+import { ChartsPanelFase3a } from '@/components/ChartsPanelFase3a'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
+import { FilterSidebarFase2, DEFAULT_FILTERS_FASE2 } from '@/components/FilterSidebarFase2'
+import { FilterSidebarFase3, DEFAULT_FILTERS_FASE3 } from '@/components/FilterSidebarFase3'
 import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { DataTableFase2, FiltersFase2 } from '@/components/DataTableFase2'
 import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
 import { FasePendiente } from '@/components/FasePendiente'
-import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users } from 'lucide-react'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle } from 'lucide-react'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -76,24 +80,11 @@ export default function Home() {
   const { data: fase1Data, error: fase1Error, isLoading: fase1Loading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const { data: fase2Data, error: fase2Error, isLoading: fase2Loading } = useSWR<CandidatoFase2[]>('/api/candidatos/fase2', fetcher)
   const { data: fase3aData, error: fase3aError, isLoading: fase3aLoading } = useSWR<CandidatoFase3[]>('/api/candidatos/fase3a', fetcher)
+  const { data: verifyFase2 } = useSWR('/api/verify/fase2', fetcher, { revalidateOnFocus: false })
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const [fase2Filters, setFase2Filters] = useState<FiltersFase2>({
-    search: '',
-    estado: [],
-    scoreMin: 0,
-    scoreMax: 100,
-    sortBy: 'nombre',
-    sortDir: 'asc',
-  })
-  const [fase3Filters, setFase3Filters] = useState<FiltersFase3>({
-    search: '',
-    resultado: [],
-    scoreMin: 0,
-    scoreMax: 50,
-    sortBy: 'nombre',
-    sortDir: 'asc',
-  })
+  const [fase2Filters, setFase2Filters] = useState<FiltersFase2>(DEFAULT_FILTERS_FASE2)
+  const [fase3Filters, setFase3Filters] = useState<FiltersFase3>(DEFAULT_FILTERS_FASE3)
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
   const [phase, setPhase] = useState<Phase>('fase1')
@@ -109,7 +100,7 @@ export default function Home() {
 
   const isPhaseWithData = phase === 'fase1' || phase === 'fase2' || phase === 'fase3a'
 
-  // --- Fase 1 sorting (unchanged) ---
+  // --- Fase 1 sorting ---
   const sortedPhaseData = useMemo(() => {
     if (!displayDataFase1 || !Array.isArray(displayDataFase1)) return []
     return [...displayDataFase1].sort((a, b) => {
@@ -128,6 +119,26 @@ export default function Home() {
       return filters.sortDir === 'asc' ? cmp : -cmp
     })
   }, [displayDataFase1, filters.sortBy, filters.sortDir])
+
+  // --- Fase 1 stats cards ---
+  const fase1CardDefs: StatCardDef[] = useMemo(() => {
+    const data = sortedPhaseData
+    if (!data.length) return []
+    const total = data.length
+    const aptos = data.filter((c) => c.estado === 'APTO/A').length
+    const noAptos = data.filter((c) => c.estado === 'NO APTO/A').length
+    const noPresentados = data.filter((c) => c.estado === 'NO PRESENTADO/A').length
+    const conPuntuacion = data.filter((c) => c.totalFase1 !== null)
+    const media = conPuntuacion.length > 0
+      ? conPuntuacion.reduce((a, c) => a + (c.totalFase1 ?? 0), 0) / conPuntuacion.length
+      : 0
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'RESULTADO', value: aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${total > 0 ? ((aptos / total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
+      { eyebrow: 'RESULTADO', value: noAptos.toLocaleString('es-ES'), label: 'NO APTO/A', sub: `${total > 0 ? ((noAptos / total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
+      { eyebrow: 'RESULTADO', value: noPresentados.toLocaleString('es-ES'), label: 'No Presentados', sub: `${total > 0 ? ((noPresentados / total) * 100).toFixed(1) : 0}%`, icon: MinusCircle, iconColor: 'text-amber-500', valueColor: 'text-amber-700' },
+    ]
+  }, [sortedPhaseData])
 
   // --- Fase 2 sorting ---
   const sortedFase2Data = useMemo(() => {
@@ -206,147 +217,49 @@ export default function Home() {
     setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
   }
 
-  // --- Fase 2 inline stats ---
-  const fase2Stats = useMemo(() => {
-    const data = displayDataFase2
-    if (!data.length) return null
-    const total = data.length
-    const aptos = data.filter((c) => c.estado === 'APTO/A').length
-    const noAptos = data.filter((c) => c.estado === 'NO APTO/A').length
-    const noPresentados = data.filter((c) => c.estado === 'NO PRESENTADO/A').length
-    const excluidos = data.filter((c) => c.estado.startsWith('EXCLUIDO')).length
-    const renuncias = data.filter((c) => c.estado === 'RENUNCIA').length
-    const conPuntuacion = data.filter((c) => c.puntuacion !== null)
+  const handleResetFiltersFase2 = () => {
+    setFase2Filters(DEFAULT_FILTERS_FASE2)
+  }
+
+  const handleResetFiltersFase3 = () => {
+    setFase3Filters(DEFAULT_FILTERS_FASE3)
+  }
+
+  // --- Fase 2 stats cards ---
+  const fase2CardDefs: StatCardDef[] = useMemo(() => {
+    if (!displayDataFase2.length) return []
+    const total = displayDataFase2.length
+    const aptos = displayDataFase2.filter((c) => c.estado === 'APTO/A').length
+    const noAptos = displayDataFase2.filter((c) => c.estado === 'NO APTO/A').length
+    const conPuntuacion = displayDataFase2.filter((c) => c.puntuacion !== null)
     const media = conPuntuacion.length > 0
       ? conPuntuacion.reduce((a, c) => a + (c.puntuacion ?? 0), 0) / conPuntuacion.length
       : 0
-    return { total, aptos, noAptos, noPresentados, excluidos, renuncias, media }
-  }, [displayDataFase2])
-
-  const fase2Distribucion = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const c of displayDataFase2) {
-      counts[c.estado] = (counts[c.estado] ?? 0) + 1
-    }
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [displayDataFase2])
-
-  const fase2Histograma = useMemo(() => {
-    const buckets: Record<string, number> = {}
-    const step = 5
-    for (const c of displayDataFase2) {
-      if (c.puntuacion === null) continue
-      const bucket = Math.floor(c.puntuacion / step) * step
-      const label = `${bucket}`
-      buckets[label] = (buckets[label] ?? 0) + 1
-    }
-    return Object.entries(buckets)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([name, count]) => ({ name, count }))
-  }, [displayDataFase2])
-
-  const renderFase2Stats = () => {
-    if (!fase2Stats) return null
-    const s = fase2Stats
-    const cards = [
-      { eyebrow: 'TOTAL', value: s.total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
-      { eyebrow: 'RESULTADO', value: s.aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${s.total > 0 ? ((s.aptos / s.total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
-      { eyebrow: 'RESULTADO', value: s.noAptos.toLocaleString('es-ES'), label: 'NO APTO', sub: `${s.total > 0 ? ((s.noAptos / s.total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
-      { eyebrow: 'MEDIA', value: s.media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'RESULTADO', value: aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${total > 0 ? ((aptos / total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
+      { eyebrow: 'RESULTADO', value: noAptos.toLocaleString('es-ES'), label: 'NO APTO', sub: `${total > 0 ? ((noAptos / total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
+      { eyebrow: 'MEDIA', value: media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
     ]
-    return (
-      <div className="grid grid-cols-2 gap-0 lg:grid-cols-4 border border-border rounded-sm overflow-hidden bg-card shadow-sm">
-        {cards.map((card, idx) => {
-          const Icon = card.icon
-          return (
-            <div key={card.label} className={`flex flex-col gap-3 p-6 lg:p-8 ${idx < 2 ? 'border-b lg:border-b-0 lg:border-r border-border' : ''} ${idx === 1 ? 'lg:border-r border-border' : ''}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{card.eyebrow}</span>
-                <Icon className={`h-5 w-5 ${card.iconColor}`} />
-              </div>
-              <div>
-                <span className={`text-4xl font-bold leading-none ${card.valueColor}`}>{card.value}</span>
-                {card.sub && <span className="ml-2 text-sm font-medium text-muted-foreground">{card.sub}</span>}
-              </div>
-              <p className="text-sm text-muted-foreground">{card.label}</p>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
+  }, [displayDataFase2])
 
-  // --- Fase 3a inline stats ---
-  const fase3aStats = useMemo(() => {
-    const data = displayDataFase3a
-    if (!data.length) return null
-    const total = data.length
-    const aptos = data.filter((c) => c.resultado3a === 'APTO/A').length
-    const noAptos = data.filter((c) => c.resultado3a === 'NO APTO/A' || c.resultado3a === 'NO PRESENTADO/A').length
-    const excluidos = data.filter((c) => c.resultado3a && c.resultado3a.startsWith('EXCLUIDO')).length
-    const renuncias = data.filter((c) => c.resultado3a && c.resultado3a.startsWith('RENUNCIA')).length
-    const conPuntuacion = data.filter((c) => c.puntuacion3a !== null)
+  // --- Fase 3a stats cards ---
+  const fase3aCardDefs: StatCardDef[] = useMemo(() => {
+    if (!displayDataFase3a.length) return []
+    const total = displayDataFase3a.length
+    const aptos = displayDataFase3a.filter((c) => c.resultado3a === 'APTO/A').length
+    const noAptos = displayDataFase3a.filter((c) => c.resultado3a === 'NO APTO/A' || c.resultado3a === 'NO PRESENTADO/A').length
+    const conPuntuacion = displayDataFase3a.filter((c) => c.puntuacion3a !== null)
     const media = conPuntuacion.length > 0
       ? conPuntuacion.reduce((a, c) => a + (c.puntuacion3a ?? 0), 0) / conPuntuacion.length
       : 0
-    return { total, aptos, noAptos, excluidos, renuncias, media }
-  }, [displayDataFase3a])
-
-  // --- Fase 3a inline charts ---
-  const fase3aDistribucion = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const c of displayDataFase3a) {
-      const r = c.resultado3a ?? 'SIN DATO'
-      counts[r] = (counts[r] ?? 0) + 1
-    }
-    return Object.entries(counts).map(([name, value]) => ({ name, value }))
-  }, [displayDataFase3a])
-
-  const fase3aHistograma = useMemo(() => {
-    const buckets: Record<string, number> = {}
-    const step = 5
-    for (const c of displayDataFase3a) {
-      if (c.puntuacion3a === null) continue
-      const bucket = Math.floor(c.puntuacion3a / step) * step
-      const label = `${bucket}`
-      buckets[label] = (buckets[label] ?? 0) + 1
-    }
-    return Object.entries(buckets)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([name, count]) => ({ name, count }))
-  }, [displayDataFase3a])
-
-  const renderFase3aStats = () => {
-    if (!fase3aStats) return null
-    const s = fase3aStats
-    const cards = [
-      { eyebrow: 'TOTAL', value: s.total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
-      { eyebrow: 'RESULTADO', value: s.aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${s.total > 0 ? ((s.aptos / s.total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
-      { eyebrow: 'RESULTADO', value: s.noAptos.toLocaleString('es-ES'), label: 'NO APTO / NP', sub: `${s.total > 0 ? ((s.noAptos / s.total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
-      { eyebrow: 'MEDIA', value: s.media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'RESULTADO', value: aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${total > 0 ? ((aptos / total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
+      { eyebrow: 'RESULTADO', value: noAptos.toLocaleString('es-ES'), label: 'NO APTO / NP', sub: `${total > 0 ? ((noAptos / total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
+      { eyebrow: 'MEDIA', value: media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
     ]
-
-    return (
-      <div className="grid grid-cols-2 gap-0 lg:grid-cols-4 border border-border rounded-sm overflow-hidden bg-card shadow-sm">
-        {cards.map((card, idx) => {
-          const Icon = card.icon
-          return (
-            <div key={card.label} className={`flex flex-col gap-3 p-6 lg:p-8 ${idx < 2 ? 'border-b lg:border-b-0 lg:border-r border-border' : ''} ${idx === 1 ? 'lg:border-r border-border' : ''}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{card.eyebrow}</span>
-                <Icon className={`h-5 w-5 ${card.iconColor}`} />
-              </div>
-              <div>
-                <span className={`text-4xl font-bold leading-none ${card.valueColor}`}>{card.value}</span>
-                {card.sub && <span className="ml-2 text-sm font-medium text-muted-foreground">{card.sub}</span>}
-              </div>
-              <p className="text-sm text-muted-foreground">{card.label}</p>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
+  }, [displayDataFase3a])
 
   const recordCount = phase === 'fase1' ? displayDataFase1.length : phase === 'fase2' ? displayDataFase2.length : displayDataFase3a.length
 
@@ -471,7 +384,7 @@ export default function Home() {
             {/* Fase 1 stats and content */}
             {phase === 'fase1' && (
               <>
-                <StatsCards data={sortedPhaseData} />
+                <StatsCards cards={fase1CardDefs} />
                 <div className="border-b border-border">
                   <div className="flex items-stretch gap-0">
                     {[
@@ -571,7 +484,19 @@ export default function Home() {
             {/* Fase 2 content */}
             {phase === 'fase2' && (
               <>
-                {renderFase2Stats()}
+                <StatsCards cards={fase2CardDefs} />
+
+                {/* Verification badge */}
+                {verifyFase2?.status === 'verified' && (
+                  <div className="flex items-center gap-2 rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-800">
+                    <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium">Datos verificados</span>
+                    <span className="text-emerald-600">{verifyFase2.integrity_check.matched}/{verifyFase2.integrity_check.total_rows} filas cotejadas contra el PDF original</span>
+                    <span className="ml-auto text-[10px] text-emerald-500 font-mono">SHA-256: {verifyFase2.csv_hash.slice(0, 12)}…</span>
+                  </div>
+                )}
 
                 <div className="border-b border-border">
                   <div className="flex items-stretch gap-0">
@@ -599,69 +524,11 @@ export default function Home() {
                   <div>
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
                       <div className="w-full lg:w-60 shrink-0">
-                        <aside className="flex flex-col gap-5 bg-card border border-border rounded-sm p-5 h-fit sticky top-[57px] shadow-sm">
-                          <div className="flex items-center justify-between border-b border-border pb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-foreground">Filtros</span>
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Buscar candidato</label>
-                            <input
-                              placeholder="Nombre o identificador..."
-                              value={fase2Filters.search}
-                              onChange={(e) => setFase2Filters((f) => ({ ...f, search: e.target.value }))}
-                              className="w-full h-8 rounded-sm border border-border bg-background px-2.5 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Puntuación Fase 2</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={fase2Filters.scoreMin}
-                                onChange={(e) => setFase2Filters((f) => ({ ...f, scoreMin: Number(e.target.value) }))}
-                                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                              />
-                              <span className="text-xs text-muted-foreground self-center">—</span>
-                              <input
-                                type="number"
-                                min={0}
-                                max={100}
-                                value={fase2Filters.scoreMax}
-                                onChange={(e) => setFase2Filters((f) => ({ ...f, scoreMax: Number(e.target.value) }))}
-                                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                              />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ordenar por</label>
-                            <select
-                              value={fase2Filters.sortBy}
-                              onChange={(e) => setFase2Filters((f) => ({ ...f, sortBy: e.target.value }))}
-                              className="w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-xs"
-                            >
-                              <option value="nombre">Nombre</option>
-                              <option value="puntuacion">Puntuación Fase 2</option>
-                              <option value="id">Identificador</option>
-                            </select>
-                            <div className="flex gap-1.5">
-                              {(['asc', 'desc'] as const).map((dir) => (
-                                <button
-                                  key={dir}
-                                  onClick={() => setFase2Filters((f) => ({ ...f, sortDir: dir }))}
-                                  className={`flex-1 rounded-sm border py-1.5 text-xs font-medium transition-all ${
-                                    fase2Filters.sortDir === dir
-                                      ? 'bg-primary text-white border-primary'
-                                      : 'bg-background text-muted-foreground border-border'
-                                  }`}
-                                >
-                                  {dir === 'asc' ? 'Ascendente' : 'Descendente'}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </aside>
+                        <FilterSidebarFase2
+                          filters={fase2Filters}
+                          onChange={setFase2Filters}
+                          onReset={handleResetFiltersFase2}
+                        />
                       </div>
                       <div className="flex-1 min-w-0 w-full">
                         <DataTableFase2
@@ -682,66 +549,48 @@ export default function Home() {
                       <div className="mt-2 h-0.5 w-8 bg-primary" />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                      <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
-                        <h3 className="text-sm font-bold text-foreground mb-1">Distribución por Resultado</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Resultado definitivo Fase 2</p>
-                        <div className="h-64 flex items-center justify-center">
-                          <div className="space-y-3 w-full max-w-xs">
-                            {fase2Distribucion.map(({ name, value }) => {
-                              const total = displayDataFase2.length
-                              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-                              return (
-                                <div key={name} className="flex items-center gap-3">
-                                  <span className="text-xs font-medium w-32 text-right truncate">{name}</span>
-                                  <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-primary transition-all"
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-xs font-mono text-muted-foreground w-16 text-right">{value} ({pct}%)</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
-                        <h3 className="text-sm font-bold text-foreground mb-1">Distribución de Puntuación</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Candidatos aptos con puntuación registrada</p>
-                        <div className="h-64 flex items-end gap-1">
-                          {fase2Histograma.map(({ name, count }) => {
-                            const maxCount = Math.max(...fase2Histograma.map(h => h.count), 1)
-                            const height = (count / maxCount) * 100
-                            return (
-                              <div key={name} className="flex-1 flex flex-col items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground font-mono">{count}</span>
-                                <div className="w-full bg-primary/10 rounded-t" style={{ height: `${Math.max(height, 2)}%` }}>
-                                  <div className="w-full h-full bg-primary rounded-t" style={{ opacity: 0.3 + (height / 100) * 0.7 }} />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground font-mono">{name}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
+                    {/* Filter buttons for Fase 2 charts */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtrar:</span>
+                      {[
+                        { label: 'APTO/A', active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50' },
+                        { label: 'NO APTO/A', active: 'bg-red-600 text-white border-red-600', inactive: 'bg-white text-red-700 border-red-300 hover:bg-red-50' },
+                        { label: 'NO PRESENTADO/A', active: 'bg-amber-500 text-white border-amber-500', inactive: 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50' },
+                        { label: 'EXCLUIDO/A (1)', active: 'bg-gray-600 text-white border-gray-600', inactive: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' },
+                        { label: 'RENUNCIA', active: 'bg-purple-600 text-white border-purple-600', inactive: 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50' },
+                      ].map(({ label, active, inactive }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            const next = fase2Filters.estado.includes(label)
+                              ? fase2Filters.estado.filter((x) => x !== label)
+                              : [...fase2Filters.estado, label]
+                            setFase2Filters((f) => ({ ...f, estado: next }))
+                          }}
+                          className={`rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
+                            fase2Filters.estado.includes(label) ? active : inactive
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {fase2Filters.estado.length > 0 && (
+                        <button
+                          onClick={() => setFase2Filters((f) => ({ ...f, estado: [] }))}
+                          className="text-xs text-primary underline underline-offset-2"
+                        >
+                          Ver todos
+                        </button>
+                      )}
                     </div>
 
-                    <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
-                      <table className="w-full min-w-[420px] text-xs">
-                        <tbody className="divide-y divide-border/60">
-                          <tr><td className="py-2 pr-3 text-muted-foreground">Total candidatos</td><td className="py-2 text-right font-mono font-semibold text-foreground">{displayDataFase2.length.toLocaleString('es-ES')}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">APTO/A</td><td className="py-2 text-right font-mono font-semibold text-emerald-700">{fase2Stats?.aptos.toLocaleString('es-ES') ?? 0}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">NO APTO/A</td><td className="py-2 text-right font-mono font-semibold text-red-700">{fase2Stats?.noAptos.toLocaleString('es-ES') ?? 0}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">NO PRESENTADO/A</td><td className="py-2 text-right font-mono font-semibold text-amber-700">{fase2Stats?.noPresentados.toLocaleString('es-ES') ?? 0}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">Excluidos / Renuncias</td><td className="py-2 text-right font-mono font-semibold text-muted-foreground">{(fase2Stats?.excluidos ?? 0) + (fase2Stats?.renuncias ?? 0)}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">Puntuación media (aptos)</td><td className="py-2 text-right font-mono font-semibold text-foreground">{fase2Stats?.media.toFixed(2) ?? '—'}</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
+                    <ChartsPanelFase2
+                      data={
+                        fase2Filters.estado.length > 0
+                          ? displayDataFase2.filter((c) => fase2Filters.estado.includes(c.estado))
+                          : displayDataFase2
+                      }
+                    />
                   </div>
                 )}
               </>
@@ -750,7 +599,7 @@ export default function Home() {
             {/* Fase 3a content */}
             {phase === 'fase3a' && (
               <>
-                {renderFase3aStats()}
+                <StatsCards cards={fase3aCardDefs} />
 
                 <div className="border-b border-border">
                   <div className="flex items-stretch gap-0">
@@ -779,75 +628,11 @@ export default function Home() {
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
                       <div className="w-full lg:w-60 shrink-0">
                         {/* Fase 3a filter sidebar */}
-                        <aside className="flex flex-col gap-5 bg-card border border-border rounded-sm p-5 h-fit sticky top-[57px] shadow-sm">
-                          <div className="flex items-center justify-between border-b border-border pb-3">
-                            <span className="text-xs font-bold uppercase tracking-wider text-foreground">Filtros</span>
-                          </div>
-
-                          {/* Search */}
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Buscar candidato</label>
-                            <input
-                              placeholder="Nombre o identificador..."
-                              value={fase3Filters.search}
-                              onChange={(e) => setFase3Filters((f) => ({ ...f, search: e.target.value }))}
-                              className="w-full h-8 rounded-sm border border-border bg-background px-2.5 text-sm"
-                            />
-                          </div>
-
-                          {/* Score range */}
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Puntuación 3A</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                min={0}
-                                max={50}
-                                value={fase3Filters.scoreMin}
-                                onChange={(e) => setFase3Filters((f) => ({ ...f, scoreMin: Number(e.target.value) }))}
-                                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                              />
-                              <span className="text-xs text-muted-foreground self-center">—</span>
-                              <input
-                                type="number"
-                                min={0}
-                                max={50}
-                                value={fase3Filters.scoreMax}
-                                onChange={(e) => setFase3Filters((f) => ({ ...f, scoreMax: Number(e.target.value) }))}
-                                className="w-full rounded-sm border border-border bg-background px-2 py-1 text-xs"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Sort */}
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Ordenar por</label>
-                            <select
-                              value={fase3Filters.sortBy}
-                              onChange={(e) => setFase3Filters((f) => ({ ...f, sortBy: e.target.value }))}
-                              className="w-full rounded-sm border border-border bg-background px-2.5 py-1.5 text-xs"
-                            >
-                              <option value="nombre">Nombre</option>
-                              <option value="puntuacion3a">Puntuación 3A</option>
-                              <option value="id">Identificador</option>
-                            </select>
-                            <div className="flex gap-1.5">
-                              {(['asc', 'desc'] as const).map((dir) => (
-                                <button
-                                  key={dir}
-                                  onClick={() => setFase3Filters((f) => ({ ...f, sortDir: dir }))}
-                                  className={`flex-1 rounded-sm border py-1.5 text-xs font-medium transition-all ${
-                                    fase3Filters.sortDir === dir
-                                      ? 'bg-primary text-white border-primary'
-                                      : 'bg-background text-muted-foreground border-border'
-                                  }`}
-                                >
-                                  {dir === 'asc' ? 'Ascendente' : 'Descendente'}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </aside>
+                        <FilterSidebarFase3
+                          filters={fase3Filters}
+                          onChange={setFase3Filters}
+                          onReset={handleResetFiltersFase3}
+                        />
                       </div>
                       <div className="flex-1 min-w-0 w-full">
                         <DataTableFase3
@@ -868,67 +653,52 @@ export default function Home() {
                       <div className="mt-2 h-0.5 w-8 bg-primary" />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                      {/* Pie chart */}
-                      <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
-                        <h3 className="text-sm font-bold text-foreground mb-1">Distribución por Resultado</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Resultado provisional Fase 3A</p>
-                        <div className="h-64 flex items-center justify-center">
-                          <div className="space-y-3 w-full max-w-xs">
-                            {fase3aDistribucion.map(({ name, value }) => {
-                              const total = displayDataFase3a.length
-                              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : 0
-                              return (
-                                <div key={name} className="flex items-center gap-3">
-                                  <span className="text-xs font-medium w-32 text-right truncate">{name}</span>
-                                  <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                                    <div
-                                      className="h-full rounded-full bg-primary transition-all"
-                                      style={{ width: `${pct}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-xs font-mono text-muted-foreground w-16 text-right">{value} ({pct}%)</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Histogram */}
-                      <div className="bg-card border border-border rounded-sm p-5 shadow-sm">
-                        <h3 className="text-sm font-bold text-foreground mb-1">Distribución de Puntuación</h3>
-                        <p className="text-xs text-muted-foreground mb-4">Candidatos con puntuación registrada</p>
-                        <div className="h-64 flex items-end gap-1">
-                          {fase3aHistograma.map(({ name, count }) => {
-                            const maxCount = Math.max(...fase3aHistograma.map(h => h.count), 1)
-                            const height = (count / maxCount) * 100
-                            return (
-                              <div key={name} className="flex-1 flex flex-col items-center gap-1">
-                                <span className="text-[10px] text-muted-foreground font-mono">{count}</span>
-                                <div className="w-full bg-primary/10 rounded-t" style={{ height: `${Math.max(height, 2)}%` }}>
-                                  <div className="w-full h-full bg-primary rounded-t" style={{ opacity: 0.3 + (height / 100) * 0.7 }} />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground font-mono">{name}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
+                    {/* Filter buttons for Fase 3A charts */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtrar:</span>
+                      {[
+                        { label: 'APTO/A', active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50' },
+                        { label: 'NO APTO/A', active: 'bg-red-600 text-white border-red-600', inactive: 'bg-white text-red-700 border-red-300 hover:bg-red-50' },
+                        { label: 'NO PRESENTADO/A', active: 'bg-amber-500 text-white border-amber-500', inactive: 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50' },
+                        { label: 'EXCLUIDO/A (1)', active: 'bg-gray-600 text-white border-gray-600', inactive: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' },
+                        { label: 'EXCLUIDO/A (2)', active: 'bg-gray-600 text-white border-gray-600', inactive: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' },
+                        { label: 'RENUNCIA', active: 'bg-purple-600 text-white border-purple-600', inactive: 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50' },
+                      ].map(({ label, active, inactive }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            const next = fase3Filters.resultado.includes(label)
+                              ? fase3Filters.resultado.filter((x) => x !== label)
+                              : [...fase3Filters.resultado, label]
+                            setFase3Filters((f) => ({ ...f, resultado: next }))
+                          }}
+                          className={`rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
+                            fase3Filters.resultado.includes(label) ? active : inactive
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {fase3Filters.resultado.length > 0 && (
+                        <button
+                          onClick={() => setFase3Filters((f) => ({ ...f, resultado: [] }))}
+                          className="text-xs text-primary underline underline-offset-2"
+                        >
+                          Ver todos
+                        </button>
+                      )}
                     </div>
 
-                    {/* summary table */}
-                    <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Estadísticas comunes</h4>
-                      <table className="w-full min-w-[420px] text-xs">
-                        <tbody className="divide-y divide-border/60">
-                          <tr><td className="py-2 pr-3 text-muted-foreground">Total candidatos</td><td className="py-2 text-right font-mono font-semibold text-foreground">{displayDataFase3a.length.toLocaleString('es-ES')}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">APTO/A</td><td className="py-2 text-right font-mono font-semibold text-emerald-700">{fase3aStats?.aptos.toLocaleString('es-ES') ?? 0}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">NO APTO/A</td><td className="py-2 text-right font-mono font-semibold text-red-700">{fase3aStats?.noAptos.toLocaleString('es-ES') ?? 0}</td></tr>
-                          <tr><td className="py-2 pr-3 text-muted-foreground">Puntuación media</td><td className="py-2 text-right font-mono font-semibold text-foreground">{fase3aStats?.media.toFixed(2) ?? '—'}</td></tr>
-                        </tbody>
-                      </table>
-                    </div>
+                    <ChartsPanelFase3a
+                      data={
+                        fase3Filters.resultado.length > 0
+                          ? displayDataFase3a.filter((c) => {
+                              const r = c.resultado3a ?? ''
+                              return fase3Filters.resultado.includes(r)
+                            })
+                          : displayDataFase3a
+                      }
+                    />
                   </div>
                 )}
               </>
@@ -941,8 +711,19 @@ export default function Home() {
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">Resultados — Fase 1 (Provisional) / Fase 2 (Definitivo) / Fase 3A (Provisional). Solo consulta. Datos sujetos a modificación.</p>
           <div className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-xs text-muted-foreground">Datos cargados desde CSV</span>
+            {phase === 'fase2' && verifyFase2?.status === 'verified' ? (
+              <>
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="text-xs text-muted-foreground">
+                  Fase 2 verificada — {verifyFase2.integrity_check.matched} filas cotejadas
+                </span>
+              </>
+            ) : (
+              <>
+                <div className="h-2 w-2 rounded-full bg-amber-400" />
+                <span className="text-xs text-muted-foreground">Datos cargados desde CSV</span>
+              </>
+            )}
           </div>
         </div>
       </footer>
