@@ -16,7 +16,7 @@ import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
 import { DataTableGlobal } from '@/components/DataTableGlobal'
 import { FasePendiente } from '@/components/FasePendiente'
 import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
-import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe } from 'lucide-react'
+import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag } from 'lucide-react'
 import {
   BarChart,
   Bar,
@@ -290,10 +290,13 @@ export default function Home() {
     const maxScore = conPuntuacion.length > 0
       ? Math.max(...conPuntuacion.map((c) => c.puntuacionGlobal!))
       : 0
+    const corteIndex = Math.min(149, total) - 1
+    const notaCorte = total >= 149 ? globalData[corteIndex]?.puntuacionGlobal ?? null : null
     return [
       { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
       { eyebrow: 'MEDIA GLOBAL', value: media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
       { eyebrow: 'MÁXIMA', value: maxScore.toFixed(2), label: 'puntuación máxima', icon: Globe, iconColor: 'text-amber-600', valueColor: 'text-amber-700' },
+      { eyebrow: 'CORTE #149', value: notaCorte !== null ? notaCorte.toFixed(2) : '—', label: 'nota de corte', icon: Flag, iconColor: 'text-red-600', valueColor: 'text-red-700' },
     ]
   }, [globalData])
 
