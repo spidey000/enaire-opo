@@ -1,51 +1,15 @@
 'use client'
 
 import { useMemo } from 'react'
+import { Doughnut, Bar, Scatter } from 'react-chartjs-2'
+import type { ChartData, ChartOptions } from 'chart.js'
+import '@/lib/chart-config'
 import { Candidato } from '@/lib/parseCSV'
 import { buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  ScatterChart,
-  Scatter,
-  CartesianGrid,
-  Legend,
-} from 'recharts'
+import { PRIMARY, GRID_COLOR, TICK_COLOR, ESTADO_COLORS, BAR_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, avg } from '@/lib/chart-config'
 
 interface Props {
   data: Candidato[]
-}
-
-const PRIMARY = '#009FE3'
-const ESTADO_COLORS: Record<string, string> = {
-  'APTO/A': '#16a34a',
-  'NO APTO/A': '#dc2626',
-  'NO PRESENTADO/A': '#d97706',
-}
-const BAR_COLORS = [PRIMARY, '#16a34a', '#d97706']
-
-const TOOLTIP_STYLE = {
-  contentStyle: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '4px',
-    color: '#1a1a2e',
-    fontSize: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  },
-}
-
-function avg(values: (number | null)[]) {
-  const valid = values.filter((v): v is number => v !== null)
-  if (!valid.length) return 0
-  return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(2))
 }
 
 function ChartCard({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
@@ -55,9 +19,22 @@ function ChartCard({ title, sub, children }: { title: string; sub?: string; chil
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-4 h-60">{children}</div>
     </div>
   )
+}
+
+const tooltipOptions: ChartOptions['plugins']['tooltip'] = {
+  backgroundColor: TOOLTIP_BG,
+  borderColor: TOOLTIP_BORDER,
+  borderWidth: 1,
+  titleColor: '#1a1a2e',
+  bodyColor: '#1a1a2e',
+  titleFont: { size: 11 },
+  bodyFont: { size: 11 },
+  padding: 8,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  cornerRadius: 4,
 }
 
 export function ChartsPanel({ data }: Props) {
@@ -73,7 +50,7 @@ export function ChartsPanel({ data }: Props) {
       .map((c) => c.totalFase1! as number)
   }, [data])
 
-  const { buckets, total: bucketTotal } = useMemo(
+  const { buckets } = useMemo(
     () => buildScoreBuckets(scores, 5, 0),
     [scores]
   )
@@ -100,7 +77,7 @@ export function ChartsPanel({ data }: Props) {
 
   const scatterDomain = useMemo(() => {
     if (!scatterData.length) {
-      return { x: [0, 10], y: [0, 10] }
+      return { x: [0, 10] as [number, number], y: [0, 10] as [number, number] }
     }
     let minX = scatterData[0].x
     let maxX = scatterData[0].x
@@ -114,8 +91,8 @@ export function ChartsPanel({ data }: Props) {
     }
     const padding = 2
     return {
-      x: [Math.max(0, minX - padding), maxX + padding],
-      y: [Math.max(0, minY - padding), maxY + padding],
+      x: [Math.max(0, minX - padding), maxX + padding] as [number, number],
+      y: [Math.max(0, minY - padding), maxY + padding] as [number, number],
     }
   }, [scatterData])
 
@@ -135,92 +112,225 @@ export function ChartsPanel({ data }: Props) {
     ]
   }, [data])
 
-  const TICK = { fontSize: 11, fill: '#6b7280' }
-  const GRID_COLOR = '#e5e7eb'
+  // ─── Donut: Distribución por Estado ──────────────────────────
+  const donutData: ChartData<'doughnut'> = {
+    labels: estadoData.map((d) => d.name),
+    datasets: [
+      {
+        data: estadoData.map((d) => d.value),
+        backgroundColor: estadoData.map((d) => ESTADO_COLORS[d.name] ?? '#94a3b8'),
+        borderWidth: 0,
+      },
+    ],
+  }
+  const donutOptions: ChartOptions<'doughnut'> = {
+    cutout: '45%',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { font: { size: 11 }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16 },
+      },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          label: (ctx) => {
+            const total = (ctx.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0)
+            const pct = total > 0 ? ((ctx.parsed as number) / total * 100).toFixed(1) : '0'
+            return `${ctx.label}: ${(ctx.parsed as number).toLocaleString('es-ES')} (${pct}%)`
+          },
+        },
+      },
+    },
+  }
+
+  // ─── Horizontal Bar: Media por prueba ────────────────────────
+  const horizBarData: ChartData<'bar'> = {
+    labels: scoresByCategory.map((d) => d.name),
+    datasets: [
+      {
+        label: 'Media',
+        data: scoresByCategory.map((d) => d.media),
+        backgroundColor: BAR_COLORS.slice(0, scoresByCategory.length),
+        borderRadius: 2,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const horizBarOptions: ChartOptions<'bar'> = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: { label: (ctx) => `${ctx.parsed.x}` },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+      y: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+      },
+    },
+  }
+
+  // ─── Bar: Distribución sin agrupar ──────────────────────────
+  const ungroupedBarData: ChartData<'bar'> = {
+    labels: ungroupedData.map((d) => d.score),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: ungroupedData.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 1,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const ungroupedBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          title: (ctx) => `Puntuación ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR, maxTicksLimit: 15 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+    },
+  }
+
+  // ─── Scatter: Conocimientos vs Aptitudes ────────────────────
+  const scatterChartData: ChartData<'scatter'> = {
+    datasets: ['APTO/A', 'NO APTO/A', 'NO PRESENTADO/A'].map((estado) => ({
+      label: estado,
+      data: scatterData.filter((d) => d.estado === estado).map((d) => ({ x: d.x, y: d.y })),
+      backgroundColor: ESTADO_COLORS[estado],
+      pointRadius: 2.5,
+      pointHoverRadius: 4,
+    })),
+  }
+  const scatterOptions: ChartOptions<'scatter'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { font: { size: 11 }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16 },
+      },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          label: (ctx) => {
+            const p = ctx.parsed as { x: number; y: number }
+            return `${ctx.dataset.label}: (${p.x.toFixed(2)}, ${p.y.toFixed(2)})`
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        type: 'linear',
+        position: 'bottom',
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        title: { display: true, text: 'Con. Generales', font: { size: 11 }, color: TICK_COLOR },
+        min: scatterDomain.x[0],
+        max: scatterDomain.x[1],
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        title: { display: true, text: 'Aptitudes', font: { size: 11 }, color: TICK_COLOR },
+        min: scatterDomain.y[0],
+        max: scatterDomain.y[1],
+      },
+    },
+  }
+
+  // ─── Bar: Distribución por tramos ───────────────────────────
+  const bucketsBarData: ChartData<'bar'> = {
+    labels: buckets.map((d) => d.rangeLabel),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: buckets.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 2,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const bucketsBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          title: (ctx) => `Tramo ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10 }, color: TICK_COLOR, maxRotation: 35 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+    },
+  }
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard title="Distribución por Estado" sub="Resultado provisional Fase 1">
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie data={estadoData} cx="50%" cy="50%" outerRadius={90} innerRadius={40} dataKey="value" paddingAngle={2}>
-                {estadoData.map((entry) => (
-                  <Cell key={entry.name} fill={ESTADO_COLORS[entry.name] ?? '#94a3b8'} stroke="none" />
-                ))}
-              </Pie>
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number, name: string) => [v.toLocaleString('es-ES'), name]} />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <Doughnut data={donutData} options={donutOptions} />
         </ChartCard>
 
         <ChartCard title="Media de Puntuaciones — APTO/A" sub="Puntuación media por prueba entre candidatos aptos">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={scoresByCategory} margin={{ top: 4, right: 4, left: -16, bottom: 0 }} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
-              <XAxis type="number" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} />
-              <YAxis type="category" dataKey="name" tick={TICK} tickLine={false} axisLine={false} width={90} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [`${v}`, 'Media']} />
-              <Bar dataKey="media" radius={[0, 2, 2, 0]} maxBarSize={28}>
-                {scoresByCategory.map((_, i) => (
-                  <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <Bar data={horizBarData} options={horizBarOptions} />
         </ChartCard>
 
         <ChartCard title="Distribución de Puntuación Total (sin agrupar)" sub="Candidatos con puntuación registrada — cada punto entero">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={ungroupedData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip
-                {...TOOLTIP_STYLE}
-                formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
-                labelFormatter={(l) => `Puntuación ${l}`}
-              />
-              <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Bar data={ungroupedBarData} options={ungroupedBarOptions} />
         </ChartCard>
 
         <ChartCard title="Conocimientos vs. Aptitudes" sub="Todos los candidatos con puntuación en ambas pruebas">
-          <ResponsiveContainer width="100%" height={240}>
-            <ScatterChart margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-              <XAxis type="number" dataKey="x" name="Con. Generales" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} domain={scatterDomain.x} />
-              <YAxis type="number" dataKey="y" name="Aptitudes" tick={TICK} tickLine={false} axisLine={false} domain={scatterDomain.y} />
-              <Tooltip {...TOOLTIP_STYLE} />
-              {['APTO/A', 'NO APTO/A', 'NO PRESENTADO/A'].map((estado) => (
-                <Scatter
-                  key={estado}
-                  name={estado}
-                  data={scatterData.filter((d) => d.estado === estado)}
-                  fill={ESTADO_COLORS[estado]}
-                  opacity={0.55}
-                  r={2.5}
-                />
-              ))}
-              <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-            </ScatterChart>
-          </ResponsiveContainer>
+          <Scatter data={scatterChartData} options={scatterOptions} />
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard title="Distribución por tramos" sub="Puntuación Total Fase 1 — agrupado cada 5 puntos">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={buckets} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="rangeLabel" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval={0} angle={-35} textAnchor="end" height={60} />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Tramo ${l}`} />
-              <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Bar data={bucketsBarData} options={bucketsBarOptions} />
         </ChartCard>
 
         <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">

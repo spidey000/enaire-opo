@@ -1,48 +1,16 @@
 'use client'
 
 import { useMemo } from 'react'
+import { Doughnut, Bar } from 'react-chartjs-2'
+import type { ChartData, ChartOptions } from 'chart.js'
+import '@/lib/chart-config'
 import { CandidatoFase3 } from '@/lib/parseCSV'
 import { buildScoreBuckets, buildUngroupedHistogram } from './ScoreDistributionTable'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  CartesianGrid,
-  Legend,
-} from 'recharts'
+import { PRIMARY, GRID_COLOR, TICK_COLOR, ESTADO_COLORS, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chart-config'
 
 interface Props {
   data: CandidatoFase3[]
 }
-
-const PRIMARY = '#009FE3'
-const ESTADO_COLORS: Record<string, string> = {
-  'APTO/A': '#16a34a',
-  'NO APTO/A': '#dc2626',
-  'NO PRESENTADO/A': '#d97706',
-  'EXCLUIDO/A (1)': '#6b7280',
-  'EXCLUIDO/A (2)': '#9ca3af',
-  RENUNCIA: '#a855f7',
-  'RENUNCIA (Incumplimiento base 3.1 c))': '#c084fc',
-}
-const TOOLTIP_STYLE = {
-  contentStyle: {
-    backgroundColor: '#ffffff',
-    border: '1px solid #e5e7eb',
-    borderRadius: '4px',
-    color: '#1a1a2e',
-    fontSize: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  },
-}
-const TICK = { fontSize: 11, fill: '#6b7280' }
-const GRID_COLOR = '#e5e7eb'
 
 function ChartCard({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
   return (
@@ -51,9 +19,21 @@ function ChartCard({ title, sub, children }: { title: string; sub?: string; chil
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
       </div>
-      <div className="mt-4">{children}</div>
+      <div className="mt-4 h-60">{children}</div>
     </div>
   )
+}
+
+const tooltipOptions: ChartOptions['plugins']['tooltip'] = {
+  backgroundColor: TOOLTIP_BG,
+  borderColor: TOOLTIP_BORDER,
+  borderWidth: 1,
+  titleColor: '#1a1a2e',
+  bodyColor: '#1a1a2e',
+  titleFont: { size: 11 },
+  bodyFont: { size: 11 },
+  padding: 8,
+  cornerRadius: 4,
 }
 
 export function ChartsPanelFase3a({ data }: Props) {
@@ -72,7 +52,7 @@ export function ChartsPanelFase3a({ data }: Props) {
       .map((c) => c.puntuacion3a! as number)
   }, [data])
 
-  const { buckets, total: bucketTotal } = useMemo(
+  const { buckets } = useMemo(
     () => buildScoreBuckets(scores, 5, 0),
     [scores]
   )
@@ -109,62 +89,132 @@ export function ChartsPanelFase3a({ data }: Props) {
     ]
   }, [data])
 
+  // ─── Donut: Distribución por Resultado ───────────────────────
+  const donutData: ChartData<'doughnut'> = {
+    labels: resultadoData.map((d) => d.name),
+    datasets: [
+      {
+        data: resultadoData.map((d) => d.value),
+        backgroundColor: resultadoData.map((d) => ESTADO_COLORS[d.name] ?? '#94a3b8'),
+        borderWidth: 0,
+      },
+    ],
+  }
+  const donutOptions: ChartOptions<'doughnut'> = {
+    cutout: '45%',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { font: { size: 11 }, boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16 },
+      },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          label: (ctx) => {
+            const total = (ctx.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0)
+            const pct = total > 0 ? ((ctx.parsed as number) / total * 100).toFixed(1) : '0'
+            return `${ctx.label}: ${(ctx.parsed as number).toLocaleString('es-ES')} (${pct}%)`
+          },
+        },
+      },
+    },
+  }
+
+  // ─── Bar: Distribución sin agrupar ──────────────────────────
+  const ungroupedBarData: ChartData<'bar'> = {
+    labels: ungroupedData.map((d) => d.score),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: ungroupedData.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 1,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const ungroupedBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          title: (ctx) => `Puntuación ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR, maxTicksLimit: 15 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+    },
+  }
+
+  // ─── Bar: Distribución por tramos ───────────────────────────
+  const bucketsBarData: ChartData<'bar'> = {
+    labels: buckets.map((d) => d.rangeLabel),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: buckets.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 2,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const bucketsBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipOptions,
+        callbacks: {
+          title: (ctx) => `Tramo ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10 }, color: TICK_COLOR, maxRotation: 35 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+    },
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard title="Distribución por Resultado" sub="Resultado provisional Fase 3A">
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie
-                data={resultadoData}
-                cx="50%"
-                cy="50%"
-                outerRadius={90}
-                innerRadius={40}
-                dataKey="value"
-                paddingAngle={2}
-              >
-                {resultadoData.map((entry) => (
-                  <Cell key={entry.name} fill={ESTADO_COLORS[entry.name] ?? '#94a3b8'} stroke="none" />
-                ))}
-              </Pie>
-              <Tooltip
-                {...TOOLTIP_STYLE}
-                formatter={(v: number, name: string) => [v.toLocaleString('es-ES'), name]}
-              />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <Doughnut data={donutData} options={donutOptions} />
         </ChartCard>
 
         <ChartCard title="Distribución de Puntuación (sin agrupar)" sub="Candidatos aptos — cada punto entero de puntuación">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={ungroupedData} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip
-                {...TOOLTIP_STYLE}
-                formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']}
-                labelFormatter={(l) => `Puntuación ${l}`}
-              />
-              <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Bar data={ungroupedBarData} options={ungroupedBarOptions} />
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ChartCard title="Distribución por tramos" sub="Puntuación Fase 3A — agrupado cada 5 puntos">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={buckets} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-              <XAxis dataKey="rangeLabel" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval={0} angle={-35} textAnchor="end" height={60} />
-              <YAxis tick={TICK} tickLine={false} axisLine={false} />
-              <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Tramo ${l}`} />
-              <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Bar data={bucketsBarData} options={bucketsBarOptions} />
         </ChartCard>
 
         <div className="bg-card border border-border rounded-sm p-4 shadow-sm overflow-x-auto">

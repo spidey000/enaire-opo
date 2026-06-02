@@ -18,15 +18,10 @@ import { DataTableGlobal, FiltersGlobal, DEFAULT_FILTERS_GLOBAL, GlobalColumnVis
 import { FasePendiente } from '@/components/FasePendiente'
 import { buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag } from 'lucide-react'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts'
+import { Bar } from 'react-chartjs-2'
+import type { ChartData, ChartOptions } from 'chart.js'
+import '@/lib/chart-config'
+import { PRIMARY, GRID_COLOR, TICK_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chart-config'
 
 const fetcher = (url: string) =>
   fetch(url).then((r) => {
@@ -912,17 +907,93 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
     return { mejorSubida, mejorBajada, notaMax, notaMin, mediana }
   }, [data])
 
-  const PRIMARY = '#009FE3'
-  const TICK = { fontSize: 11, fill: '#6b7280' }
-  const GRID_COLOR = '#e5e7eb'
-  const TOOLTIP_STYLE = {
-    contentStyle: {
-      backgroundColor: '#ffffff',
-      border: '1px solid #e5e7eb',
-      borderRadius: '4px',
-      color: '#1a1a2e',
-      fontSize: '12px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  const tooltipBase: ChartOptions['plugins']['tooltip'] = {
+    backgroundColor: TOOLTIP_BG,
+    borderColor: TOOLTIP_BORDER,
+    borderWidth: 1,
+    titleColor: '#1a1a2e',
+    bodyColor: '#1a1a2e',
+    titleFont: { size: 11 },
+    bodyFont: { size: 11 },
+    padding: 8,
+    cornerRadius: 4,
+  }
+
+  // ─── Bar: Ungrouped histogram ───────────────────────────────
+  const ungroupedBarData: ChartData<'bar'> = {
+    labels: ungrouped.map((d) => d.score),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: ungrouped.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 1,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const ungroupedBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipBase,
+        callbacks: {
+          title: (ctx) => `Puntuación ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR, maxTicksLimit: 15 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
+    },
+  }
+
+  // ─── Bar: Grouped buckets ──────────────────────────────────
+  const bucketsBarData: ChartData<'bar'> = {
+    labels: buckets.map((d) => d.rangeLabel),
+    datasets: [
+      {
+        label: 'Candidatos',
+        data: buckets.map((d) => d.count),
+        backgroundColor: PRIMARY,
+        borderRadius: 2,
+        borderSkipped: false,
+      },
+    ],
+  }
+  const bucketsBarOptions: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipBase,
+        callbacks: {
+          title: (ctx) => `Tramo ${ctx[0].label}`,
+          label: (ctx) => `${ctx.parsed.y.toLocaleString('es-ES')} candidatos`,
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 10 }, color: TICK_COLOR, maxRotation: 35 },
+      },
+      y: {
+        grid: { color: GRID_COLOR, drawTicks: false },
+        ticks: { font: { size: 11 }, color: TICK_COLOR },
+        beginAtZero: true,
+      },
     },
   }
 
@@ -935,16 +1006,8 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
             <h3 className="text-sm font-bold text-foreground">Distribución de Puntuación Global (sin agrupar)</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Cada punto entero de puntuación global</p>
           </div>
-          <div className="mt-4">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={ungrouped} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-                <XAxis dataKey="score" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval="preserveStartEnd" />
-                <YAxis tick={TICK} tickLine={false} axisLine={false} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Puntuación ${l}`} />
-                <Bar dataKey="count" fill={PRIMARY} radius={[1, 1, 0, 0]} maxBarSize={12} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-4 h-60">
+            <Bar data={ungroupedBarData} options={ungroupedBarOptions} />
           </div>
         </div>
 
@@ -954,16 +1017,8 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
             <h3 className="text-sm font-bold text-foreground">Distribución por tramos</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Puntuación Global — agrupado cada 10 puntos</p>
           </div>
-          <div className="mt-4">
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={buckets} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-                <XAxis dataKey="rangeLabel" tick={TICK} tickLine={false} axisLine={{ stroke: GRID_COLOR }} interval={0} angle={-35} textAnchor="end" height={60} />
-                <YAxis tick={TICK} tickLine={false} axisLine={false} />
-                <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [v.toLocaleString('es-ES'), 'Candidatos']} labelFormatter={(l) => `Tramo ${l}`} />
-                <Bar dataKey="count" fill={PRIMARY} radius={[2, 2, 0, 0]} maxBarSize={32} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="mt-4 h-60">
+            <Bar data={bucketsBarData} options={bucketsBarOptions} />
           </div>
         </div>
       </div>
