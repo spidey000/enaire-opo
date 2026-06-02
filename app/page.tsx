@@ -10,10 +10,11 @@ import { ChartsPanelFase3a } from '@/components/ChartsPanelFase3a'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { FilterSidebarFase2, DEFAULT_FILTERS_FASE2 } from '@/components/FilterSidebarFase2'
 import { FilterSidebarFase3, DEFAULT_FILTERS_FASE3 } from '@/components/FilterSidebarFase3'
+import { FilterSidebarGlobal } from '@/components/FilterSidebarGlobal'
 import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { DataTableFase2, FiltersFase2 } from '@/components/DataTableFase2'
 import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
-import { DataTableGlobal } from '@/components/DataTableGlobal'
+import { DataTableGlobal, FiltersGlobal, DEFAULT_FILTERS_GLOBAL, GlobalColumnVisibility, GLOBAL_DEFAULT_VISIBLE_COLUMNS } from '@/components/DataTableGlobal'
 import { FasePendiente } from '@/components/FasePendiente'
 import { ScoreDistributionTable, buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag } from 'lucide-react'
@@ -97,6 +98,8 @@ export default function Home() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [fase2Filters, setFase2Filters] = useState<FiltersFase2>(DEFAULT_FILTERS_FASE2)
   const [fase3Filters, setFase3Filters] = useState<FiltersFase3>(DEFAULT_FILTERS_FASE3)
+  const [globalFilters, setGlobalFilters] = useState<FiltersGlobal>(DEFAULT_FILTERS_GLOBAL)
+  const [globalVisibleColumns, setGlobalVisibleColumns] = useState<GlobalColumnVisibility>(GLOBAL_DEFAULT_VISIBLE_COLUMNS)
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
   const [tab, setTab] = useState<Tab>('tabla')
   const [phase, setPhase] = useState<Phase>('global')
@@ -241,6 +244,27 @@ export default function Home() {
 
   const handleResetFiltersFase3 = () => {
     setFase3Filters(DEFAULT_FILTERS_FASE3)
+  }
+
+  const handleSortChangeGlobal = (col: string) => {
+    setGlobalFilters((prev) => ({
+      ...prev,
+      sortBy: col,
+      sortDir: prev.sortBy === col && prev.sortDir === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
+  const handleToggleColumnGlobal = (key: string) => {
+    setGlobalVisibleColumns((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      const hasAnyVisible = Object.values(next).some(Boolean)
+      return hasAnyVisible ? next : prev
+    })
+  }
+
+  const handleResetFiltersGlobal = () => {
+    setGlobalFilters(DEFAULT_FILTERS_GLOBAL)
+    setGlobalVisibleColumns(GLOBAL_DEFAULT_VISIBLE_COLUMNS)
   }
 
   // --- Fase 2 stats cards ---
@@ -457,7 +481,27 @@ export default function Home() {
                 </div>
 
                 {tab === 'tabla' && (
-                  <DataTableGlobal data={globalData} />
+                  <div className="flex flex-col lg:flex-row gap-6 items-start">
+                    <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
+                      <FilterSidebarGlobal
+                        filters={globalFilters}
+                        onChange={setGlobalFilters}
+                        onReset={handleResetFiltersGlobal}
+                        visibleColumns={globalVisibleColumns}
+                        onToggleColumn={handleToggleColumnGlobal}
+                        collapsed={!sidebarOpen}
+                        onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 w-full">
+                      <DataTableGlobal
+                        data={globalData}
+                        filters={globalFilters}
+                        visibleColumns={globalVisibleColumns}
+                        onSortChange={handleSortChangeGlobal}
+                      />
+                    </div>
+                  </div>
                 )}
 
                 {tab === 'graficas' && (

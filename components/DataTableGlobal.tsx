@@ -4,8 +4,58 @@ import { useMemo, useState, useEffect } from 'react'
 import { CandidatoGlobal } from '@/lib/parseCSV'
 import { ArrowUpDown, ArrowUp, ArrowDown, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
+// --- Column configuration (exported for FilterSidebarGlobal) ---
+
+export interface GlobalColumn {
+  key: string
+  label: string
+  align?: string
+  defaultVisible?: boolean
+}
+
+export type GlobalColumnVisibility = Record<string, boolean>
+
+export const GLOBAL_COLUMNS: GlobalColumn[] = [
+  { key: 'rankingGlobal', label: 'Rank.', align: 'text-right', defaultVisible: true },
+  { key: 'nombre', label: 'Nombre y Apellidos', defaultVisible: true },
+  { key: 'totalFase1', label: 'Total F1', align: 'text-right', defaultVisible: false },
+  { key: 'puntuacionFase2', label: 'Punt. F2', align: 'text-right', defaultVisible: false },
+  { key: 'evolF1aF2', label: 'Δ F1→F2', align: 'text-right', defaultVisible: false },
+  { key: 'puntuacionFase3a', label: 'Punt. 3A', align: 'text-right', defaultVisible: false },
+  { key: 'evolF2aF3a', label: 'Δ F2→3A', align: 'text-right', defaultVisible: false },
+  { key: 'evolF1aF3a', label: 'Δ F1→3A', align: 'text-right', defaultVisible: true },
+  { key: 'puntuacionGlobal', label: 'Total Global', align: 'text-right', defaultVisible: true },
+]
+
+export const GLOBAL_DEFAULT_VISIBLE_COLUMNS: GlobalColumnVisibility = Object.fromEntries(
+  GLOBAL_COLUMNS.map((col) => [col.key, col.defaultVisible !== false])
+) as GlobalColumnVisibility
+
+// --- Filters ---
+
+export interface FiltersGlobal {
+  search: string
+  scoreMin: number
+  scoreMax: number
+  sortBy: string
+  sortDir: 'asc' | 'desc'
+}
+
+export const DEFAULT_FILTERS_GLOBAL: FiltersGlobal = {
+  search: '',
+  scoreMin: 0,
+  scoreMax: 300,
+  sortBy: 'puntuacionGlobal',
+  sortDir: 'desc',
+}
+
+// --- Component ---
+
 interface Props {
   data: CandidatoGlobal[]
+  filters: FiltersGlobal
+  visibleColumns: GlobalColumnVisibility
+  onSortChange: (col: string) => void
 }
 
 const PAGE_SIZE = 25
@@ -41,29 +91,36 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   )
 }
 
-const COLUMNS = [
-  { key: 'rankingGlobal', label: 'Rank.', align: 'text-right' },
-  { key: 'nombre', label: 'Nombre y Apellidos' },
-  { key: 'totalFase1', label: 'Total F1', align: 'text-right' },
-  { key: 'puntuacionFase2', label: 'Punt. F2', align: 'text-right' },
-  { key: 'evolF1aF2', label: 'Δ F1→F2', align: 'text-right' },
-  { key: 'puntuacionFase3a', label: 'Punt. 3A', align: 'text-right' },
-  { key: 'evolF2aF3a', label: 'Δ F2→3A', align: 'text-right' },
-  { key: 'evolF1aF3a', label: 'Δ F1→3A', align: 'text-right' },
-  { key: 'puntuacionGlobal', label: 'Total Global', align: 'text-right' },
-]
+function Cell({ value, className, children }: { value: number | string | null; className?: string; children?: React.ReactNode }) {
+  if (children !== undefined) return <td className={`px-3 py-2.5 ${className ?? ''}`}>{children}</td>
+  if (value === null) return <td className={`px-3 py-2.5 ${className ?? ''}`}><span className="text-muted-foreground/40">—</span></td>
+  return <td className={`px-3 py-2.5 ${className ?? ''}`}>{value}</td>
+}
 
-export function DataTableGlobal({ data }: Props) {
+export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }: Props) {
   const [page, setPage] = useState(1)
   const [pageInput, setPageInput] = useState('1')
   const [showAll, setShowAll] = useState(false)
-  const [sortBy, setSortBy] = useState('rankingGlobal')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const filtered = useMemo(() => {
+    const search = filters.search.toLowerCase().trim()
+    return data.filter((c) => {
+      if (search && !c.nombre.toLowerCase().includes(search) && !c.id.toLowerCase().includes(search)) {
+        return false
+      }
+      if (c.puntuacionGlobal !== null) {
+        if (c.puntuacionGlobal < filters.scoreMin || c.puntuacionGlobal > filters.scoreMax) return false
+      } else if (filters.scoreMin > 0 || filters.scoreMax < 300) {
+        return false
+      }
+      return true
+    })
+  }, [data, filters])
 
   const sortedData = useMemo(() => {
-    return [...data].sort((a, b) => {
-      const av = (a as any)[sortBy]
-      const bv = (b as any)[sortBy]
+    return [...filtered].sort((a, b) => {
+      const av = (a as any)[filters.sortBy]
+      const bv = (b as any)[filters.sortBy]
       if (av === null && bv === null) return 0
       if (av === null) return 1
       if (bv === null) return -1
@@ -73,14 +130,14 @@ export function DataTableGlobal({ data }: Props) {
       } else {
         cmp = String(av).localeCompare(String(bv), 'es')
       }
-      return sortDir === 'asc' ? cmp : -cmp
+      return filters.sortDir === 'asc' ? cmp : -cmp
     })
-  }, [data, sortBy, sortDir])
+  }, [filtered, filters.sortBy, filters.sortDir])
 
   useEffect(() => {
     setPage(1)
     setPageInput('1')
-  }, [sortBy, sortDir])
+  }, [filtered])
 
   const totalPages = Math.max(1, Math.ceil(sortedData.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -107,22 +164,40 @@ export function DataTableGlobal({ data }: Props) {
     return items
   }, [safePage, totalPages])
 
-  function handleSort(col: string) {
-    if (sortBy === col) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortBy(col)
-      setSortDir(col === 'rankingGlobal' ? 'asc' : 'desc')
-    }
-  }
+  const displayedCols = GLOBAL_COLUMNS.filter((col) => visibleColumns[col.key])
 
   function SortIcon({ col }: { col: string }) {
-    if (sortBy === col) {
-      return sortDir === 'asc'
+    if (filters.sortBy === col) {
+      return filters.sortDir === 'asc'
         ? <ArrowUp className="h-3 w-3 text-primary" />
         : <ArrowDown className="h-3 w-3 text-primary" />
     }
     return <ArrowUpDown className="h-3 w-3 opacity-30" />
+  }
+
+  function renderCell(c: CandidatoGlobal, colKey: string) {
+    switch (colKey) {
+      case 'rankingGlobal':
+        return <td key={`${c.id}-rk`} className="px-3 py-2.5 font-mono text-right text-[11px] w-10"><span className="font-bold text-primary">{c.rankingGlobal}</span></td>
+      case 'nombre':
+        return <td key={`${c.id}-nom`} className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
+      case 'totalFase1':
+        return <td key={`${c.id}-f1`} className="px-3 py-2.5 font-mono text-right text-[11px]">{c.totalFase1 !== null ? <span className="text-primary font-semibold">{fmt(c.totalFase1)}</span> : <span className="text-muted-foreground/40">—</span>}</td>
+      case 'puntuacionFase2':
+        return <td key={`${c.id}-f2`} className="px-3 py-2.5 font-mono text-right text-[11px]">{c.puntuacionFase2 !== null ? <span className="text-foreground font-semibold">{fmt(c.puntuacionFase2)}</span> : <span className="text-muted-foreground/40">—</span>}</td>
+      case 'evolF1aF2':
+        return <td key={`${c.id}-e12`} className="px-3 py-2.5 text-right text-[11px]"><DeltaBadge delta={c.evolF1aF2} /></td>
+      case 'puntuacionFase3a':
+        return <td key={`${c.id}-f3`} className="px-3 py-2.5 font-mono text-right text-[11px]">{c.puntuacionFase3a !== null ? <span className="text-indigo-600 font-semibold">{fmt(c.puntuacionFase3a)}</span> : <span className="text-muted-foreground/40">—</span>}</td>
+      case 'evolF2aF3a':
+        return <td key={`${c.id}-e23`} className="px-3 py-2.5 text-right text-[11px]"><DeltaBadge delta={c.evolF2aF3a} /></td>
+      case 'evolF1aF3a':
+        return <td key={`${c.id}-e13`} className="px-3 py-2.5 text-right text-[11px]"><DeltaBadge delta={c.evolF1aF3a} /></td>
+      case 'puntuacionGlobal':
+        return <td key={`${c.id}-tg`} className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">{c.puntuacionGlobal !== null ? <span className="text-foreground">{fmt(c.puntuacionGlobal)}</span> : <span className="text-muted-foreground/40">—</span>}</td>
+      default:
+        return null
+    }
   }
 
   return (
@@ -149,21 +224,12 @@ export function DataTableGlobal({ data }: Props) {
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de ranking global">
         <table className="w-full min-w-[800px] text-xs table-fixed border-separate border-spacing-0">
-          <colgroup>
-            <col style={{ width: '7%' }} />
-            <col style={{ width: '26%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '11%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '12%' }} />
-            <col style={{ width: '10%' }} />
-          </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
-              {COLUMNS.map((col) => (
+              {displayedCols.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => handleSort(col.key)}
+                  onClick={() => onSortChange(col.key)}
                   className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
                   scope="col"
                 >
@@ -178,8 +244,8 @@ export function DataTableGlobal({ data }: Props) {
           <tbody className="divide-y divide-border/60">
             {currentRows.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                  No hay datos para el ranking global.
+                <td colSpan={Math.max(1, displayedCols.length)} className="px-4 py-16 text-center text-sm text-muted-foreground">
+                  No se encontraron candidatos en el ranking global.
                 </td>
               </tr>
             ) : (
@@ -188,39 +254,7 @@ export function DataTableGlobal({ data }: Props) {
                   key={`global-${c.id}`}
                   className={`${i % 2 === 0 ? 'bg-card' : 'bg-muted/20'} hover:bg-primary/5 transition-colors`}
                 >
-                  <td className="px-3 py-2.5 font-mono text-right text-[11px] w-10">
-                    <span className="font-bold text-primary">{c.rankingGlobal}</span>
-                  </td>
-                  <td className="px-3 py-2.5 font-medium text-foreground break-words">{c.nombre}</td>
-                  <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                    {c.totalFase1 !== null
-                      ? <span className="text-primary font-semibold">{fmt(c.totalFase1)}</span>
-                      : <span className="text-muted-foreground/40">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                    {c.puntuacionFase2 !== null
-                      ? <span className="text-foreground font-semibold">{fmt(c.puntuacionFase2)}</span>
-                      : <span className="text-muted-foreground/40">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[11px]">
-                    <DeltaBadge delta={c.evolF1aF2} />
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-right text-[11px]">
-                    {c.puntuacionFase3a !== null
-                      ? <span className="text-indigo-600 font-semibold">{fmt(c.puntuacionFase3a)}</span>
-                      : <span className="text-muted-foreground/40">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[11px]">
-                    <DeltaBadge delta={c.evolF2aF3a} />
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[11px]">
-                    <DeltaBadge delta={c.evolF1aF3a} />
-                  </td>
-                  <td className="px-3 py-2.5 font-mono text-right font-bold text-[12px]">
-                    {c.puntuacionGlobal !== null
-                      ? <span className="text-foreground">{fmt(c.puntuacionGlobal)}</span>
-                      : <span className="text-muted-foreground/40">—</span>}
-                  </td>
+                  {displayedCols.map((col) => renderCell(c, col.key))}
                 </tr>
               ))
             )}
