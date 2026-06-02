@@ -222,8 +222,11 @@ export function computeGlobalRanking(
   const fase2Map = new Map(fase2.map((c) => [c.id, c]))
   const fase3aMap = new Map(fase3a.map((c) => [c.id, c]))
 
+  // Deduplicate Fase 1 by ID (some IDs appear multiple times in raw CSV)
+  const uniqueFase1 = new Map(fase1.map((c) => [c.id, c]))
+
   // Only include candidates present in ALL 3 phases (passed all previous phases)
-  const eligible = fase1.filter((c) => fase2Map.has(c.id) && fase3aMap.has(c.id))
+  const eligible = [...uniqueFase1.values()].filter((c) => fase2Map.has(c.id) && fase3aMap.has(c.id))
 
   const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a'>[] = eligible.map((c) => {
     const f2 = fase2Map.get(c.id)!
