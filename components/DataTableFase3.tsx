@@ -172,7 +172,7 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de resultados Fase 3a">
-        <table className="w-full min-w-[450px] lg:min-w-[600px] text-xs table-fixed border-separate border-spacing-0">
+        <table className="w-full min-w-0 lg:min-w-[600px] text-xs table-auto md:table-fixed border-separate border-spacing-0">
           <colgroup>
             <col style={{ width: '8%' }} />
             <col style={{ width: '14%' }} />
@@ -182,12 +182,12 @@ export function DataTableFase3({ data, filters, onSortChange }: Props) {
           </colgroup>
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
-              <th className="w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
+              <th className="w-7 md:w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
               {COLUMNS_FASE3.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => onSortChange(col.key)}
-                  className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
+                  className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-normal md:whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
                   scope="col"
                 >
                   <div className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : ''}`}>

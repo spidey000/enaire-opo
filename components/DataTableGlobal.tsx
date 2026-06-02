@@ -254,15 +254,15 @@ export function DataTableGlobal({ data, filters, visibleColumns, onSortChange }:
       </div>
 
       <div className="w-full overflow-x-auto" aria-label="Tabla de ranking global">
-        <table className="w-full min-w-[550px] lg:min-w-[800px] text-xs table-fixed border-separate border-spacing-0">
+        <table className="w-full min-w-0 lg:min-w-[800px] text-xs table-auto md:table-fixed border-separate border-spacing-0">
           <thead className="sticky top-0 z-20">
             <tr className="border-b border-border bg-card shadow-[0_1px_0_0_theme(colors.border)]">
-              <th className="w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
+              <th className="w-7 md:w-7 px-1 py-3 text-[10px] text-muted-foreground font-semibold uppercase tracking-wider text-center" scope="col"></th>
               {displayedCols.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => onSortChange(col.key)}
-                  className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
+                  className={`px-3 py-3 font-semibold text-[10px] uppercase tracking-wider text-muted-foreground whitespace-normal md:whitespace-nowrap cursor-pointer hover:text-foreground transition-colors select-none bg-card ${col.align ?? 'text-left'}`}
                   scope="col"
                 >
                   <div className={`flex items-center gap-1 ${col.align === 'text-right' ? 'justify-end' : ''}`}>
