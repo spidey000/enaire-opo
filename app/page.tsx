@@ -121,8 +121,9 @@ export default function Home() {
 
   const globalData = useMemo<CandidatoGlobal[]>(() => {
     if (!displayDataFase1.length || !displayDataFase2.length || !displayDataFase3a.length) return []
-    return computeGlobalRanking(displayDataFase1, displayDataFase2, displayDataFase3a)
-  }, [displayDataFase1, displayDataFase2, displayDataFase3a])
+    if (!displayDataFase3b.length || !displayDataFase3c.length) return []
+    return computeGlobalRanking(displayDataFase1, displayDataFase2, displayDataFase3a, displayDataFase3b, displayDataFase3c)
+  }, [displayDataFase1, displayDataFase2, displayDataFase3a, displayDataFase3b, displayDataFase3c])
 
   const isPhaseWithData = phase === 'global' || phase === 'fase1' || phase === 'fase2' || phase === 'fase3a' || phase === 'fase3b' || phase === 'fase3c'
 
@@ -1188,6 +1189,14 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
     const mejorBajada = data.reduce((worst, c) =>
       (c.evolF1aF3a ?? Infinity) < (worst.evolF1aF3a ?? Infinity) ? c : worst
     )
+    // Mayor subida F3A→F3B
+    const mejorSubida3b = data.reduce((best, c) =>
+      (c.evolF3aF3b ?? -Infinity) > (best.evolF3aF3b ?? -Infinity) ? c : best
+    )
+    // Mayor bajada F3A→F3B
+    const mejorBajada3b = data.reduce((worst, c) =>
+      (c.evolF3aF3b ?? Infinity) < (worst.evolF3aF3b ?? Infinity) ? c : worst
+    )
     // Nota máxima y mínima
     const notaMax = data.reduce((best, c) =>
       (c.puntuacionGlobal ?? -Infinity) > (best.puntuacionGlobal ?? -Infinity) ? c : best
@@ -1204,7 +1213,7 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
       ? sortedScores[mid].puntuacionGlobal
       : null
 
-    return { mejorSubida, mejorBajada, notaMax, notaMin, mediana }
+    return { mejorSubida, mejorBajada, mejorSubida3b, mejorBajada3b, notaMax, notaMin, mediana }
   }, [data])
 
   const tooltipBase: ChartOptions['plugins']['tooltip'] = {
@@ -1340,6 +1349,16 @@ function GlobalChartsSection({ data }: { data: CandidatoGlobal[] }) {
               <p className="text-[10px] font-bold uppercase tracking-wider text-red-700 mb-1">📉 Mayor bajada F1→F3A</p>
               <p className="text-sm font-semibold text-red-900 truncate" title={statsDestacados.mejorBajada.nombre}>{statsDestacados.mejorBajada.nombre}</p>
               <p className="text-xs text-red-700 font-mono mt-0.5">{statsDestacados.mejorBajada.evolF1aF3a} puestos</p>
+            </div>
+            <div className="rounded-sm border border-sky-200 bg-sky-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700 mb-1">🏆 Mayor subida F3A→F3B</p>
+              <p className="text-sm font-semibold text-sky-900 truncate" title={statsDestacados.mejorSubida3b.nombre}>{statsDestacados.mejorSubida3b.nombre}</p>
+              <p className="text-xs text-sky-700 font-mono mt-0.5">+{statsDestacados.mejorSubida3b.evolF3aF3b} puestos</p>
+            </div>
+            <div className="rounded-sm border border-orange-200 bg-orange-50 p-3.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 mb-1">📉 Mayor bajada F3A→F3B</p>
+              <p className="text-sm font-semibold text-orange-900 truncate" title={statsDestacados.mejorBajada3b.nombre}>{statsDestacados.mejorBajada3b.nombre}</p>
+              <p className="text-xs text-orange-700 font-mono mt-0.5">{statsDestacados.mejorBajada3b.evolF3aF3b} puestos</p>
             </div>
             <div className="rounded-sm border border-amber-200 bg-amber-50 p-3.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 mb-1">🥇 Nota máxima</p>

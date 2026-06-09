@@ -79,11 +79,15 @@ export interface CandidatoGlobal {
   rankingFase2: number | null
   puntuacionFase3a: number | null
   rankingFase3a: number | null
+  puntuacionFase3b: number | null
+  rankingFase3b: number | null
+  resultado3c: string | null
   puntuacionGlobal: number | null
   rankingGlobal: number
   evolF1aF2: number | null // positivo = mejoró (subió de ranking)
   evolF2aF3a: number | null
   evolF1aF3a: number | null
+  evolF3aF3b: number | null
 }
 
 function parseScore(val: string): number | null {
@@ -333,21 +337,35 @@ function mapResultadoFase2(raw: string): ResultadoFase2 {
 export function computeGlobalRanking(
   fase1: Candidato[],
   fase2: CandidatoFase2[],
-  fase3a: CandidatoFase3[]
+  fase3a: CandidatoFase3[],
+  fase3b: CandidatoFase3BOnly[],
+  fase3c: CandidatoFase3COnly[]
 ): CandidatoGlobal[] {
   const f1Map = new Map(fase1.map((c) => [c.id, c]))
   const f2Map = new Map(fase2.map((c) => [c.id, c]))
+  const f3bMap = new Map(fase3b.map((c) => [c.id, c]))
+  const f3cMap = new Map(fase3c.map((c) => [c.id, c]))
 
-  // Cada fila APTO/A de F3A es un candidato del ranking global
+  // Solo candidatos APTO/A en F3A, F3B y F3C pasan al ranking global
   const aptos3a = fase3a.filter((c) => c.resultado3a === 'APTO/A')
 
-  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a' | 'evolF1aF3a'>[] = aptos3a.map((c) => {
+  const raw: Omit<CandidatoGlobal, 'rankingGlobal' | 'evolF1aF2' | 'evolF2aF3a' | 'evolF1aF3a' | 'evolF3aF3b'>[] = aptos3a
+    .filter((c) => {
+      const f3b = f3bMap.get(c.id)
+      const f3c = f3cMap.get(c.id)
+      const apto3b = f3b?.resultado3b === 'APTO/A'
+      const apto3c = f3c?.resultado3c === 'APTO/A'
+      return apto3b && apto3c
+    })
+    .map((c) => {
     const f1 = f1Map.get(c.id)
     const f2 = f2Map.get(c.id)
+    const f3b = f3bMap.get(c.id)
     const scores = [
       f1?.totalFase1 ?? null,
       f2?.puntuacion ?? null,
       c.puntuacion3a,
+      f3b?.puntuacion3b ?? null,
     ]
     const sum = scores.every((s) => s !== null)
       ? scores.reduce((a, b) => a! + b!, 0)
@@ -362,6 +380,9 @@ export function computeGlobalRanking(
       rankingFase2: f2?.ranking ?? null,
       puntuacionFase3a: c.puntuacion3a,
       rankingFase3a: c.ranking,
+      puntuacionFase3b: f3b?.puntuacion3b ?? null,
+      rankingFase3b: f3b?.ranking ?? null,
+      resultado3c: f3cMap.get(c.id)?.resultado3c ?? null,
       puntuacionGlobal: sum,
     }
   })
@@ -382,6 +403,9 @@ export function computeGlobalRanking(
       : null,
     evolF1aF3a: c.rankingFase1 !== null && c.rankingFase3a !== null
       ? c.rankingFase1 - c.rankingFase3a
+      : null,
+    evolF3aF3b: c.rankingFase3a !== null && c.rankingFase3b !== null
+      ? c.rankingFase3a - c.rankingFase3b
       : null,
   }))
 }
