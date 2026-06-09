@@ -2,20 +2,25 @@
 
 import { useState, useMemo } from 'react'
 import useSWR from 'swr'
-import { Candidato, CandidatoFase2, CandidatoFase3, CandidatoGlobal, computeGlobalRanking } from '@/lib/parseCSV'
+import { Candidato, CandidatoFase2, CandidatoFase3, CandidatoFase3BOnly, CandidatoFase3COnly, CandidatoGlobal, computeGlobalRanking } from '@/lib/parseCSV'
 import { StatsCards, type StatCardDef } from '@/components/StatsCards'
 import { ChartsPanel } from '@/components/ChartsPanel'
 import { ChartsPanelFase2 } from '@/components/ChartsPanelFase2'
 import { ChartsPanelFase3a } from '@/components/ChartsPanelFase3a'
+import { ChartsPanelFase3b } from '@/components/ChartsPanelFase3b'
+import { ChartsPanelFase3c } from '@/components/ChartsPanelFase3c'
 import { FilterSidebar, Filters, DEFAULT_FILTERS } from '@/components/FilterSidebar'
 import { FilterSidebarFase2, DEFAULT_FILTERS_FASE2 } from '@/components/FilterSidebarFase2'
 import { FilterSidebarFase3, DEFAULT_FILTERS_FASE3 } from '@/components/FilterSidebarFase3'
+import { FilterSidebarFase3b, DEFAULT_FILTERS_FASE3B } from '@/components/FilterSidebarFase3b'
+import { FilterSidebarFase3c, DEFAULT_FILTERS_FASE3C } from '@/components/FilterSidebarFase3c'
 import { FilterSidebarGlobal } from '@/components/FilterSidebarGlobal'
 import { DataTable, DEFAULT_VISIBLE_COLUMNS, ColumnVisibility } from '@/components/DataTable'
 import { DataTableFase2, FiltersFase2 } from '@/components/DataTableFase2'
 import { DataTableFase3, FiltersFase3 } from '@/components/DataTableFase3'
+import { DataTableFase3b, FiltersFase3B } from '@/components/DataTableFase3b'
+import { DataTableFase3c, FiltersFase3C } from '@/components/DataTableFase3c'
 import { DataTableGlobal, FiltersGlobal, DEFAULT_FILTERS_GLOBAL, GlobalColumnVisibility, GLOBAL_DEFAULT_VISIBLE_COLUMNS } from '@/components/DataTableGlobal'
-import { FasePendiente } from '@/components/FasePendiente'
 import { buildScoreBuckets, buildUngroupedHistogram } from '@/components/ScoreDistributionTable'
 import { BarChart3, Table2, Loader2, FileSpreadsheet, CheckCircle2, XCircle, Users, MinusCircle, Globe, Flag, RotateCcw } from 'lucide-react'
 import { Bar } from 'react-chartjs-2'
@@ -53,7 +58,6 @@ const PHASE_NOTES: Record<string, { title: string; bullets: string[] }> = {
     bullets: [
       'Entrevista para medir comprensión, expresión, fluidez y comunicación en inglés; exige al menos nivel C1 (MCER).',
       'Máximo 50 puntos y mínimo 25 para superar. Datos disponibles: listado provisional.',
-      'Las pruebas B y C están pendientes de publicación.',
     ],
   },
   fase3b: {
@@ -61,14 +65,14 @@ const PHASE_NOTES: Record<string, { title: string; bullets: string[] }> = {
     bullets: [
       'Evalúa la adecuación al perfil competencial del controlador/a según el marco estratégico de ENAIRE.',
       'Máximo 120 puntos y mínimo 60 para superar.',
-      'Aún no se han publicado los resultados.',
+      'Datos disponibles: listado provisional.',
     ],
   },
   fase3c: {
     title: 'Fase 3C – Evaluación clínica de la personalidad',
     bullets: [
       'Determina la aptitud psicológica con resultado Apto/No Apto.',
-      'Aún no se han publicado los resultados.',
+      'Datos disponibles: listado provisional.',
     ],
   },
 }
@@ -88,11 +92,15 @@ export default function Home() {
   const { data: fase1Data, error: fase1Error, isLoading: fase1Loading } = useSWR<Candidato[]>('/api/candidatos', fetcher)
   const { data: fase2Data, error: fase2Error, isLoading: fase2Loading } = useSWR<CandidatoFase2[]>('/api/candidatos/fase2', fetcher)
   const { data: fase3aData, error: fase3aError, isLoading: fase3aLoading } = useSWR<CandidatoFase3[]>('/api/candidatos/fase3a', fetcher)
+  const { data: fase3bData, error: fase3bError, isLoading: fase3bLoading } = useSWR<CandidatoFase3BOnly[]>('/api/candidatos/fase3b', fetcher)
+  const { data: fase3cData, error: fase3cError, isLoading: fase3cLoading } = useSWR<CandidatoFase3COnly[]>('/api/candidatos/fase3c', fetcher)
   const { data: verifyFase2 } = useSWR('/api/verify/fase2', fetcher, { revalidateOnFocus: false })
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [fase2Filters, setFase2Filters] = useState<FiltersFase2>(DEFAULT_FILTERS_FASE2)
   const [fase3Filters, setFase3Filters] = useState<FiltersFase3>(DEFAULT_FILTERS_FASE3)
+  const [fase3bFilters, setFase3bFilters] = useState<FiltersFase3B>(DEFAULT_FILTERS_FASE3B)
+  const [fase3cFilters, setFase3cFilters] = useState<FiltersFase3C>(DEFAULT_FILTERS_FASE3C)
   const [globalFilters, setGlobalFilters] = useState<FiltersGlobal>(DEFAULT_FILTERS_GLOBAL)
   const [globalVisibleColumns, setGlobalVisibleColumns] = useState<GlobalColumnVisibility>(GLOBAL_DEFAULT_VISIBLE_COLUMNS)
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>(DEFAULT_VISIBLE_COLUMNS)
@@ -108,13 +116,15 @@ export default function Home() {
   const displayDataFase1 = Array.isArray(fase1Data) ? fase1Data : []
   const displayDataFase2 = Array.isArray(fase2Data) ? fase2Data : []
   const displayDataFase3a = Array.isArray(fase3aData) ? fase3aData : []
+  const displayDataFase3b = Array.isArray(fase3bData) ? fase3bData : []
+  const displayDataFase3c = Array.isArray(fase3cData) ? fase3cData : []
 
   const globalData = useMemo<CandidatoGlobal[]>(() => {
     if (!displayDataFase1.length || !displayDataFase2.length || !displayDataFase3a.length) return []
     return computeGlobalRanking(displayDataFase1, displayDataFase2, displayDataFase3a)
   }, [displayDataFase1, displayDataFase2, displayDataFase3a])
 
-  const isPhaseWithData = phase === 'global' || phase === 'fase1' || phase === 'fase2' || phase === 'fase3a'
+  const isPhaseWithData = phase === 'global' || phase === 'fase1' || phase === 'fase2' || phase === 'fase3a' || phase === 'fase3b' || phase === 'fase3c'
 
   // --- Fase 1 sorting ---
   const sortedPhaseData = useMemo(() => {
@@ -175,6 +185,46 @@ export default function Home() {
       return fase2Filters.sortDir === 'asc' ? cmp : -cmp
     })
   }, [displayDataFase2, fase2Filters.sortBy, fase2Filters.sortDir])
+
+  // --- Fase 3b sorting ---
+  const sortedFase3bData = useMemo(() => {
+    if (!displayDataFase3b || !Array.isArray(displayDataFase3b)) return []
+    return [...displayDataFase3b].sort((a, b) => {
+      const key = fase3bFilters.sortBy as keyof CandidatoFase3BOnly
+      const av = a[key]
+      const bv = b[key]
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      let cmp = 0
+      if (typeof av === 'number' && typeof bv === 'number') {
+        cmp = av - bv
+      } else {
+        cmp = String(av).localeCompare(String(bv), 'es')
+      }
+      return fase3bFilters.sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [displayDataFase3b, fase3bFilters.sortBy, fase3bFilters.sortDir])
+
+  // --- Fase 3c sorting ---
+  const sortedFase3cData = useMemo(() => {
+    if (!displayDataFase3c || !Array.isArray(displayDataFase3c)) return []
+    return [...displayDataFase3c].sort((a, b) => {
+      const key = fase3cFilters.sortBy as keyof CandidatoFase3COnly
+      const av = a[key]
+      const bv = b[key]
+      if (av === null && bv === null) return 0
+      if (av === null) return 1
+      if (bv === null) return -1
+      let cmp = 0
+      if (typeof av === 'number' && typeof bv === 'number') {
+        cmp = av - bv
+      } else {
+        cmp = String(av).localeCompare(String(bv), 'es')
+      }
+      return fase3cFilters.sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [displayDataFase3c, fase3cFilters.sortBy, fase3cFilters.sortDir])
 
   // --- Fase 3a sorting ---
   const sortedFase3aData = useMemo(() => {
@@ -262,6 +312,30 @@ export default function Home() {
     setGlobalVisibleColumns(GLOBAL_DEFAULT_VISIBLE_COLUMNS)
   }
 
+  const handleSortChangeFase3B = (col: string) => {
+    setFase3bFilters((prev) => ({
+      ...prev,
+      sortBy: col,
+      sortDir: prev.sortBy === col && prev.sortDir === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
+  const handleResetFiltersFase3B = () => {
+    setFase3bFilters(DEFAULT_FILTERS_FASE3B)
+  }
+
+  const handleSortChangeFase3C = (col: string) => {
+    setFase3cFilters((prev) => ({
+      ...prev,
+      sortBy: col,
+      sortDir: prev.sortBy === col && prev.sortDir === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
+  const handleResetFiltersFase3C = () => {
+    setFase3cFilters(DEFAULT_FILTERS_FASE3C)
+  }
+
   // --- Fase 2 stats cards ---
   const fase2CardDefs: StatCardDef[] = useMemo(() => {
     if (!displayDataFase2.length) return []
@@ -298,6 +372,37 @@ export default function Home() {
     ]
   }, [displayDataFase3a])
 
+  // --- Fase 3b stats cards ---
+  const fase3bCardDefs: StatCardDef[] = useMemo(() => {
+    if (!displayDataFase3b.length) return []
+    const total = displayDataFase3b.length
+    const aptos = displayDataFase3b.filter((c) => c.resultado3b === 'APTO/A').length
+    const noAptos = displayDataFase3b.filter((c) => c.resultado3b === 'NO APTO/A').length
+    const conPuntuacion = displayDataFase3b.filter((c) => c.puntuacion3b !== null)
+    const media = conPuntuacion.length > 0
+      ? conPuntuacion.reduce((a, c) => a + (c.puntuacion3b ?? 0), 0) / conPuntuacion.length
+      : 0
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'RESULTADO', value: aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${total > 0 ? ((aptos / total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
+      { eyebrow: 'RESULTADO', value: noAptos.toLocaleString('es-ES'), label: 'NO APTO', sub: `${total > 0 ? ((noAptos / total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
+      { eyebrow: 'MEDIA', value: media.toFixed(2), label: 'puntuación media', icon: BarChart3, iconColor: 'text-primary', valueColor: 'text-foreground' },
+    ]
+  }, [displayDataFase3b])
+
+  // --- Fase 3c stats cards ---
+  const fase3cCardDefs: StatCardDef[] = useMemo(() => {
+    if (!displayDataFase3c.length) return []
+    const total = displayDataFase3c.length
+    const aptos = displayDataFase3c.filter((c) => c.resultado3c === 'APTO/A').length
+    const noAptos = displayDataFase3c.filter((c) => c.resultado3c === 'NO APTO/A').length
+    return [
+      { eyebrow: 'TOTAL', value: total.toLocaleString('es-ES'), label: 'candidatos', icon: Users, iconColor: 'text-primary', valueColor: 'text-foreground' },
+      { eyebrow: 'RESULTADO', value: aptos.toLocaleString('es-ES'), label: 'APTO/A', sub: `${total > 0 ? ((aptos / total) * 100).toFixed(1) : 0}%`, icon: CheckCircle2, iconColor: 'text-emerald-600', valueColor: 'text-emerald-700' },
+      { eyebrow: 'RESULTADO', value: noAptos.toLocaleString('es-ES'), label: 'NO APTO', sub: `${total > 0 ? ((noAptos / total) * 100).toFixed(1) : 0}%`, icon: XCircle, iconColor: 'text-red-500', valueColor: 'text-red-700' },
+    ]
+  }, [displayDataFase3c])
+
   // --- Global stats cards ---
   const globalCardDefs: StatCardDef[] = useMemo(() => {
     if (!globalData.length) return []
@@ -319,7 +424,7 @@ export default function Home() {
     ]
   }, [globalData])
 
-  const recordCount = phase === 'global' ? globalData.length : phase === 'fase1' ? displayDataFase1.length : phase === 'fase2' ? displayDataFase2.length : displayDataFase3a.length
+  const recordCount = phase === 'global' ? globalData.length : phase === 'fase1' ? displayDataFase1.length : phase === 'fase2' ? displayDataFase2.length : phase === 'fase3b' ? displayDataFase3b.length : phase === 'fase3c' ? displayDataFase3c.length : displayDataFase3a.length
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
@@ -361,7 +466,7 @@ export default function Home() {
       <main className="max-w-screen-xl mx-auto px-4 md:px-6 py-10 space-y-10">
         {(phase === 'global'
           ? (fase1Loading || fase2Loading || fase3aLoading)
-          : (fase1Loading || fase2Loading || (isFase3 && fase3aLoading))) && (
+          : (fase1Loading || fase2Loading || (isFase3 && (fase3aLoading || fase3bLoading || fase3cLoading)))) && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Cargando datos...</p>
@@ -383,6 +488,18 @@ export default function Home() {
         {fase3aError && isFase3 && (
           <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
             No se pudieron cargar los datos de Fase 3A.
+          </div>
+        )}
+
+        {fase3bError && phase === 'fase3b' && (
+          <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+            No se pudieron cargar los datos de Fase 3B.
+          </div>
+        )}
+
+        {fase3cError && phase === 'fase3c' && (
+          <div className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
+            No se pudieron cargar los datos de Fase 3C.
           </div>
         )}
 
@@ -408,7 +525,9 @@ export default function Home() {
         {!(phase === 'global' ? (fase1Loading || fase2Loading || fase3aLoading) : false) &&
           !(phase === 'fase1' && fase1Loading) &&
           !(phase === 'fase2' && fase2Loading) &&
-          !(isFase3 && fase3aLoading) && (
+          !(isFase3 && fase3aLoading) &&
+          !(phase === 'fase3b' && fase3bLoading) &&
+          !(phase === 'fase3c' && fase3cLoading) && (
           <>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">RESULTADOS</p>
@@ -422,31 +541,15 @@ export default function Home() {
               <div className="mt-2 h-0.5 w-10 bg-primary" />
             </div>
 
-            {/* Phase with no data yet: show info + pending banner */}
-            {!isPhaseWithData && (
-              <div className="space-y-4">
-                {phase === 'fase3b' && (
-                  <FasePendiente
-                    title="Fase 3B — Pendiente de publicación"
-                    description="Los resultados de la evaluación conductual (Fase 3B) aún no han sido publicados por ENAIRE. Esta sección se habilitará automáticamente cuando los datos estén disponibles."
-                  />
-                )}
-                {phase === 'fase3c' && (
-                  <FasePendiente
-                    title="Fase 3C — Pendiente de publicación"
-                    description="Los resultados de la evaluación clínica de la personalidad (Fase 3C) aún no han sido publicados por ENAIRE. Esta sección se habilitará automáticamente cuando los datos estén disponibles."
-                  />
-                )}
-                <section className="rounded-lg border border-border bg-card p-5">
-                  <h2 className="text-base font-semibold mb-3">{PHASE_NOTES[phase]?.title ?? ''}</h2>
-                  <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
-                    {(PHASE_NOTES[phase]?.bullets ?? []).map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                </section>
-              </div>
-            )}
+            {/* Phase info notes */}
+            <section className="rounded-lg border border-border bg-card p-5">
+              <h2 className="text-base font-semibold mb-3">{PHASE_NOTES[phase]?.title ?? ''}</h2>
+              <ul className="list-disc pl-5 space-y-2 text-sm text-muted-foreground">
+                {(PHASE_NOTES[phase]?.bullets ?? []).map((bullet) => (
+                  <li key={bullet}>{bullet}</li>
+                ))}
+              </ul>
+            </section>
 
             {/* Global view */}
             {phase === 'global' && (
@@ -828,13 +931,222 @@ export default function Home() {
                 )}
               </>
             )}
+
+            {/* Fase 3b content */}
+            {phase === 'fase3b' && (
+              <>
+                <StatsCards cards={fase3bCardDefs} />
+
+                <div className="border-b border-border">
+                  <div className="flex items-stretch gap-0">
+                    {[
+                      { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
+                      { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
+                    ].map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => setTab(id)}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
+                          tab === id
+                            ? 'border-primary text-primary bg-primary/5'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tab === 'tabla' && (
+                  <div>
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                      <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
+                        <FilterSidebarFase3b
+                          filters={fase3bFilters}
+                          onChange={setFase3bFilters}
+                          onReset={handleResetFiltersFase3B}
+                          collapsed={!sidebarOpen}
+                          onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 w-full">
+                        <DataTableFase3b
+                          data={sortedFase3bData}
+                          filters={fase3bFilters}
+                          onSortChange={handleSortChangeFase3B}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'graficas' && (
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">ANÁLISIS</p>
+                      <h2 className="text-xl font-bold text-foreground">Estadísticas Fase 3B — Conductual</h2>
+                      <div className="mt-2 h-0.5 w-8 bg-primary" />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtrar:</span>
+                      {[
+                        { label: 'APTO/A', active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50' },
+                        { label: 'NO APTO/A', active: 'bg-red-600 text-white border-red-600', inactive: 'bg-white text-red-700 border-red-300 hover:bg-red-50' },
+                        { label: 'EXCLUIDO/A (1)', active: 'bg-gray-600 text-white border-gray-600', inactive: 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' },
+                      ].map(({ label, active, inactive }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            const next = fase3bFilters.resultado.includes(label)
+                              ? fase3bFilters.resultado.filter((x) => x !== label)
+                              : [...fase3bFilters.resultado, label]
+                            setFase3bFilters((f) => ({ ...f, resultado: next }))
+                          }}
+                          className={`rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
+                            fase3bFilters.resultado.includes(label) ? active : inactive
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {fase3bFilters.resultado.length > 0 && (
+                        <button
+                          onClick={() => setFase3bFilters((f) => ({ ...f, resultado: [] }))}
+                          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+                        >
+                          <RotateCcw className="h-3 w-3" /> Ver todos
+                        </button>
+                      )}
+                    </div>
+
+                    <ChartsPanelFase3b
+                      data={
+                        fase3bFilters.resultado.length > 0
+                          ? sortedFase3bData.filter((c) => {
+                              const r = c.resultado3b ?? ''
+                              return fase3bFilters.resultado.includes(r)
+                            })
+                          : sortedFase3bData
+                      }
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Fase 3c content */}
+            {phase === 'fase3c' && (
+              <>
+                <StatsCards cards={fase3cCardDefs} />
+
+                <div className="border-b border-border">
+                  <div className="flex items-stretch gap-0">
+                    {[
+                      { id: 'tabla' as Tab, label: 'Tabla de Datos', icon: Table2 },
+                      { id: 'graficas' as Tab, label: 'Estadísticas y Gráficas', icon: BarChart3 },
+                    ].map(({ id, label, icon: Icon }) => (
+                      <button
+                        key={id}
+                        onClick={() => setTab(id)}
+                        className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all -mb-px ${
+                          tab === id
+                            ? 'border-primary text-primary bg-primary/5'
+                            : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {tab === 'tabla' && (
+                  <div>
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                      <div className={`${!sidebarOpen ? 'w-12' : 'w-full lg:w-60'} shrink-0`}>
+                        <FilterSidebarFase3c
+                          filters={fase3cFilters}
+                          onChange={setFase3cFilters}
+                          onReset={handleResetFiltersFase3C}
+                          collapsed={!sidebarOpen}
+                          onToggleCollapse={() => setSidebarOpen(!sidebarOpen)}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 w-full">
+                        <DataTableFase3c
+                          data={sortedFase3cData}
+                          filters={fase3cFilters}
+                          onSortChange={handleSortChangeFase3C}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'graficas' && (
+                  <div className="space-y-5">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">ANÁLISIS</p>
+                      <h2 className="text-xl font-bold text-foreground">Estadísticas Fase 3C — Clínica</h2>
+                      <div className="mt-2 h-0.5 w-8 bg-primary" />
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Filtrar:</span>
+                      {[
+                        { label: 'APTO/A', active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50' },
+                        { label: 'NO APTO/A', active: 'bg-red-600 text-white border-red-600', inactive: 'bg-white text-red-700 border-red-300 hover:bg-red-50' },
+                      ].map(({ label, active, inactive }) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            const next = fase3cFilters.resultado.includes(label)
+                              ? fase3cFilters.resultado.filter((x) => x !== label)
+                              : [...fase3cFilters.resultado, label]
+                            setFase3cFilters((f) => ({ ...f, resultado: next }))
+                          }}
+                          className={`rounded-sm border px-3 py-1 text-xs font-medium transition-all ${
+                            fase3cFilters.resultado.includes(label) ? active : inactive
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                      {fase3cFilters.resultado.length > 0 && (
+                        <button
+                          onClick={() => setFase3cFilters((f) => ({ ...f, resultado: [] }))}
+                          className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+                        >
+                          <RotateCcw className="h-3 w-3" /> Ver todos
+                        </button>
+                      )}
+                    </div>
+
+                    <ChartsPanelFase3c
+                      data={
+                        fase3cFilters.resultado.length > 0
+                          ? sortedFase3cData.filter((c) => {
+                              const r = c.resultado3c ?? ''
+                              return fase3cFilters.resultado.includes(r)
+                            })
+                          : sortedFase3cData
+                      }
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </main>
 
       <footer id="informacion" className="border-t border-border mt-16 py-6 px-6 bg-card scroll-mt-20">
         <div className="max-w-screen-xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p className="text-xs text-muted-foreground">Resultados — Fase 1 (Provisional) / Fase 2 (Definitivo) / Fase 3A (Provisional). Solo consulta. Datos sujetos a modificación.</p>
+          <p className="text-xs text-muted-foreground">Resultados — Fase 1 (Provisional) / Fase 2 (Definitivo) / Fase 3A/B/C (Provisional). Solo consulta. Datos sujetos a modificación.</p>
           <div className="flex items-center gap-1.5">
             {phase === 'fase2' && verifyFase2?.status === 'verified' ? (
               <>

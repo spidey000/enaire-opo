@@ -46,10 +46,27 @@ export interface CandidatoFase3 {
   resultado3a: ResultadoFase3 | null
   puntuacion3a: number | null
   ranking: number
-  resultado3b: null // always null until phase 3b is published
+  resultado3b: null
   puntuacion3b: null
-  resultado3c: null // always null until phase 3c is published
+  resultado3c: null
   puntuacion3c: null
+}
+
+export interface CandidatoFase3BOnly {
+  id: string
+  nombre: string
+  uid: string
+  resultado3b: ResultadoFase3 | null
+  puntuacion3b: number | null
+  ranking: number
+}
+
+export interface CandidatoFase3COnly {
+  id: string
+  nombre: string
+  uid: string
+  resultado3c: ResultadoFase3 | null
+  ranking: number
 }
 
 export interface CandidatoGlobal {
@@ -180,6 +197,93 @@ export function parseFase3aCSV(raw: string): CandidatoFase3[] {
   // Compute ranking sorted by score descending (ties broken by name)
   return results
     .sort((a, b) => (b.puntuacion3a ?? 0) - (a.puntuacion3a ?? 0) || a.nombre.localeCompare(b.nombre))
+    .map((c, i) => ({ ...c, ranking: i + 1 }))
+}
+
+export function parseFase3bCSV(raw: string): CandidatoFase3BOnly[] {
+  const lines = raw.split('\n')
+  const results: CandidatoFase3BOnly[] = []
+
+  const HEADER_PATTERN = /^"?IDENTIFICADOR/i
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    if (HEADER_PATTERN.test(trimmed)) continue
+
+    const fields = parseCSVLine(trimmed)
+    if (fields.length < 3) continue
+
+    const id = fields[0]?.trim() ?? ''
+    const nombre = fields[1]?.trim().replace(/^"|"$/g, '') ?? ''
+
+    if (!id || !nombre) continue
+
+    const resultadoRaw = fields[2]?.trim() ?? ''
+    const puntuacionRaw = fields[3]?.trim() ?? ''
+
+    const resultado3b: ResultadoFase3 | null = mapResultadoFase3(resultadoRaw)
+    const puntuacion3b = parseScore(puntuacionRaw)
+
+    const uid = id + '|' + nombre
+
+    results.push({
+      id,
+      nombre,
+      uid,
+      resultado3b,
+      puntuacion3b,
+      ranking: 0,
+    })
+  }
+
+  // Compute ranking sorted by score descending (ties broken by name)
+  return results
+    .sort((a, b) => (b.puntuacion3b ?? 0) - (a.puntuacion3b ?? 0) || a.nombre.localeCompare(b.nombre))
+    .map((c, i) => ({ ...c, ranking: i + 1 }))
+}
+
+export function parseFase3cCSV(raw: string): CandidatoFase3COnly[] {
+  const lines = raw.split('\n')
+  const results: CandidatoFase3COnly[] = []
+
+  const HEADER_PATTERN = /^"?IDENTIFICADOR/i
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    if (HEADER_PATTERN.test(trimmed)) continue
+
+    const fields = parseCSVLine(trimmed)
+    if (fields.length < 3) continue
+
+    const id = fields[0]?.trim() ?? ''
+    const nombre = fields[1]?.trim().replace(/^"|"$/g, '') ?? ''
+
+    if (!id || !nombre) continue
+
+    const resultadoRaw = fields[2]?.trim() ?? ''
+
+    const resultado3c: ResultadoFase3 | null = mapResultadoFase3(resultadoRaw)
+
+    const uid = id + '|' + nombre
+
+    results.push({
+      id,
+      nombre,
+      uid,
+      resultado3c,
+      ranking: 0,
+    })
+  }
+
+  return results
+    .sort((a, b) => {
+      // Sort: APTO/A first, then by name
+      const aVal = a.resultado3c === 'APTO/A' ? 1 : 0
+      const bVal = b.resultado3c === 'APTO/A' ? 1 : 0
+      return bVal - aVal || a.nombre.localeCompare(b.nombre)
+    })
     .map((c, i) => ({ ...c, ranking: i + 1 }))
 }
 
